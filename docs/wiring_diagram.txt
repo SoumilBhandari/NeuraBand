@@ -1,0 +1,113 @@
+NeuraBand Wiring Diagram
+========================
+
+POWER PATH
+==========
+
+    +-----------+          +----------+         +---------+
+    |  USB-C    |          |  TP4056  |         | MT3608  |
+    |  Power    |--5V----> | IN+  B+ |---+---> |VIN  VOUT|--> Arduino VIN (5V)
+    |  Source   |--GND---> | IN-  B- |---+---> |GND  GND |--> Arduino GND
+    +-----------+          +----------+   |     +---------+
+                                          |
+                                  +-------+-------+
+                                  |   500mAh LiPo |
+                                  |   3.7V        |
+                                  |   (with JST)  |
+                                  +---------------+
+
+    IMPORTANT:
+    - TP4056 B+/B- go to battery terminals
+    - TP4056 OUT+/OUT- go to MT3608 VIN+/GND
+    - MT3608 must be adjusted to 5.0V output BEFORE connecting to Arduino
+    - Lock the MT3608 potentiometer with hot glue after adjustment
+
+
+SENSOR CONNECTIONS
+==================
+
+                         ARDUINO NANO 33 BLE SENSE REV2
+                         (Top View, USB port at top)
+
+                          +--[USB Micro-B]--+
+              5V from --> |VIN          D13| --> LED_BUILTIN (green)
+         boost converter  |GND          D12|
+                          |RST          D11|
+                          |3V3          D10|
+     Grove GSR SIG -----> |A0           D9 |
+     (Battery V-div) ---> |A1           D8 |
+                          |A2           D7 |
+                          |A3           D6 |
+     MAX30102 SDA ------> |A4 (SDA)     D5 |
+     MAX30102 SCL ------> |A5 (SCL)     D4 |
+                          |A6           D3 |
+                          |A7           D2 |
+                          +----------------+
+
+
+MAX30102 BREAKOUT (RCWL-0531)        GROVE GSR SENSOR
++------------+                       +------------------+
+| VIN <---------- Arduino 3V3       | VCC (Red) <---------- Arduino 3V3
+| GND <---------- Common GND        | GND (Black) <-------- Common GND
+| SDA ---------> Arduino A4         | NC  (White)  unused
+| SCL ---------> Arduino A5         | SIG (Yellow) -------> Arduino A0
+| INT   unused                      +------------------+
++------------+                       |
+                                     | Finger electrodes
+                                     | connect to module
+                                     | via included cable
+
+
+OPTIONAL BATTERY VOLTAGE DIVIDER (on A1)
+=========================================
+
+    Battery +  ----[100k]----+----[100k]---- GND
+                             |
+                             +-----------> Arduino A1
+
+    This divides battery voltage by 2, so 4.2V reads as 2.1V
+    (within the 3.3V ADC range). If not installed, firmware
+    reports battery as -1.
+
+
+COMPLETE CONNECTION SUMMARY
+===========================
+
+    +---+--------+------------------+------------------+
+    | # | Arduino| Connected To     | Wire Color       |
+    +---+--------+------------------+------------------+
+    | 1 | VIN    | MT3608 VOUT+     | Red              |
+    | 2 | GND    | Common Ground    | Black            |
+    | 3 | 3V3    | MAX30102 VIN     | Orange           |
+    | 4 | 3V3    | Grove GSR VCC    | Orange           |
+    | 5 | A0     | Grove GSR SIG    | Yellow/Green     |
+    | 6 | A1     | Battery V-divider| White (optional) |
+    | 7 | A4/SDA | MAX30102 SDA     | Blue             |
+    | 8 | A5/SCL | MAX30102 SCL     | Yellow           |
+    +---+--------+------------------+------------------+
+
+    Total external wires: 8 (6 required + 2 optional for battery monitor)
+
+
+VOLTAGE LEVELS
+==============
+
+    - Arduino logic: 3.3V
+    - MAX30102 I2C: 3.3V (no level shifting needed)
+    - Grove GSR output: 0-3.3V (ratiometric to supply)
+    - LiPo battery: 3.0V (empty) to 4.2V (full)
+    - MT3608 output: 5.0V regulated
+    - Arduino VIN input: 4.5V minimum required
+
+
+I2C ADDRESS MAP
+===============
+
+    0x10 - BMM150  (onboard magnetometer)
+    0x39 - APDS9960 (onboard light/gesture)
+    0x44 - HS3003  (onboard temp/humidity)
+    0x57 - MAX30102 (external HR/SpO2)  <-- our sensor
+    0x5C - LPS22HB (onboard pressure)
+    0x68 - BMI270  (onboard IMU)
+
+    No address conflicts.

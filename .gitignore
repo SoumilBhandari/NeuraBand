@@ -1,0 +1,9 @@
+.DS_Store
+*.DS_Store
+.claude/
+
+# Debug/iteration render images (keep only final print previews)
+enclosure/v*.png
+enclosure/debug*.png
+enclosure/pill*.png
+enclosure/sidebyside*.png
