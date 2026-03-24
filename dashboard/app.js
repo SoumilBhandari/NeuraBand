@@ -68,7 +68,7 @@ function setTheme(theme) {
 }
 
 function updateChartTheme(theme) {
-    const grid = theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)';
+    const grid = theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.08)';
     const tick = theme === 'dark' ? '#2d3748' : '#9ca3af';
     [hrChart, gsrChart, accelChart].forEach(c => {
         Object.values(c.options.scales).forEach(axis => {
@@ -85,11 +85,260 @@ themeToggle.addEventListener('click', () => {
     setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 });
 
+// ─────────────── Sparkline Charts ───────────────
+const sparkOpts = {
+    responsive: true, maintainAspectRatio: false,
+    animation: false,
+    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+    scales: { x: { display: false }, y: { display: false } },
+    elements: { point: { radius: 0 }, line: { tension: 0.4, borderWidth: 1.5 } },
+    layout: { padding: 0 },
+};
+
+function createSparkline(canvasId, color) {
+    const el = $(canvasId);
+    if (!el) return null;
+    return new Chart(el, {
+        type: 'line',
+        data: { labels: [], datasets: [{ data: [], borderColor: color, backgroundColor: 'transparent' }] },
+        options: sparkOpts,
+    });
+}
+
+const sparkHR = createSparkline('spark-hr', '#ef4444');
+const sparkRR = createSparkline('spark-rr', '#06b6d4');
+const sparkNRI = createSparkline('spark-nri', '#8b5cf6');
+
+function updateSparklines() {
+    const last30 = arr => arr.slice(-30);
+    const labels30 = timeLabels.slice(-30);
+    if (sparkHR) { sparkHR.data.labels = labels30; sparkHR.data.datasets[0].data = last30(hrHistory); sparkHR.update('none'); }
+    if (sparkRR) { sparkRR.data.labels = labels30; sparkRR.data.datasets[0].data = last30(rrHistory); sparkRR.update('none'); }
+    if (sparkNRI) { sparkNRI.data.labels = labels30; sparkNRI.data.datasets[0].data = last30(nriHistory); sparkNRI.update('none'); }
+}
+
+// ─────────────── Color-Coded Vitals ───────────────
+function colorCodeVital(elementId, value, normalMin, normalMax, warnMin, warnMax) {
+    const el = $(elementId);
+    if (!el || value < 0) { if (el) el.className = 'vval'; return; }
+    if (value >= normalMin && value <= normalMax) el.className = 'vital-value status-normal';
+    else if (value >= warnMin && value <= warnMax) el.className = 'vital-value status-warning';
+    else el.className = 'vital-value status-critical';
+}
+
+function updateVitalColors() {
+    const d = latestData;
+    colorCodeVital('hr-value', d.hr, 60, 100, 55, 110);
+    colorCodeVital('spo2-value', d.sp, 95, 100, 93, 95);
+    colorCodeVital('rr-value', d.rr, 12, 20, 10, 25);
+    // NRI: lower is better
+    const nriEl = $('nri-value');
+    if (nriEl && d.nri >= 0) {
+        if (d.nri < 30) nriEl.className = 'vval status-normal';
+        else if (d.nri < 60) nriEl.className = 'vval status-warning';
+        else nriEl.className = 'vval status-critical';
+    }
+}
+
+// ─────────────── Alarm Banner ───────────────
+let alarmActive = false;
+function checkAlarms() {
+    const d = latestData;
+    const banner = $('alarm-banner'), text = $('alarm-text');
+    if (!banner || !text) return;
+
+    let alarmMsg = null;
+    if (d.sp > 0 && d.sp < 94) alarmMsg = `CRITICAL: SpO2 ${d.sp}% — Below 94% threshold`;
+    else if (d.nri > 60) alarmMsg = `ALERT: Neuro-Risk Index ${d.nri}/100 — Elevated composite risk`;
+    else if (d.hr > 120) alarmMsg = `ALERT: Heart Rate ${d.hr} BPM — Significant tachycardia`;
+    else if (d.hr > 0 && d.hr < 45) alarmMsg = `ALERT: Heart Rate ${d.hr} BPM — Severe bradycardia`;
+
+    if (alarmMsg && !alarmActive) {
+        text.textContent = alarmMsg;
+        banner.classList.remove('hidden');
+        alarmActive = true;
+    } else if (!alarmMsg && alarmActive) {
+        banner.classList.add('hidden');
+        alarmActive = false;
+    } else if (alarmMsg) {
+        text.textContent = alarmMsg;
+    }
+}
+
+const alarmDismiss = $('alarm-dismiss');
+if (alarmDismiss) alarmDismiss.addEventListener('click', () => {
+    const banner = $('alarm-banner');
+    if (banner) { banner.classList.add('hidden'); alarmActive = false; }
+});
+
+// ─────────────── Heartbeat Audio ───────────────
+let soundEnabled = false;
+const audioCtx = typeof AudioContext !== 'undefined' ? new AudioContext() : null;
+
+function playHeartbeatBeep() {
+    if (!soundEnabled || !audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.08);
+}
+
+const soundToggle = $('sound-toggle');
+if (soundToggle) soundToggle.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    soundToggle.classList.toggle('active', soundEnabled);
+    if (soundEnabled && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+});
+
+// ─────────────── Fullscreen Toggle ───────────────
+const fullscreenBtn = $('fullscreen-btn');
+if (fullscreenBtn) fullscreenBtn.addEventListener('click', () => {
+    document.body.classList.toggle('fullscreen');
+});
+
+// ─────────────── Biomarker Summary Table ───────────────
+function bioStatus(val, okMin, okMax, warnMin, warnMax) {
+    if (val < 0 || val === undefined) return { cls: 'na', lbl: '--' };
+    if (val >= okMin && val <= okMax) return { cls: 'ok', lbl: 'Normal' };
+    if (val >= warnMin && val <= warnMax) return { cls: 'warn', lbl: 'Borderline' };
+    return { cls: 'crit', lbl: 'Abnormal' };
+}
+
+function updateBioSummary() {
+    const d = latestData;
+    const rows = [
+        { id: 'hr', val: d.hr, fmt: d.hr > 0 ? d.hr : '--', ...bioStatus(d.hr, 60, 100, 55, 110) },
+        { id: 'sp', val: d.sp, fmt: d.sp > 0 ? d.sp + '%' : '--', ...bioStatus(d.sp, 95, 100, 93, 95) },
+        { id: 'rr', val: d.rr, fmt: d.rr > 0 ? d.rr : '--', ...bioStatus(d.rr, 12, 20, 10, 25) },
+        { id: 'nri', val: d.nri, fmt: d.nri >= 0 ? d.nri : '--', cls: d.nri < 30 ? 'ok' : d.nri < 60 ? 'warn' : 'crit', lbl: d.nri < 30 ? 'Low' : d.nri < 60 ? 'Moderate' : 'High' },
+        { id: 'gsr', val: d.gsr, fmt: d.gsr || '--', ...bioStatus(d.gsr, 200, 600, 100, 700) },
+        { id: 'gait', val: d.gait, fmt: d.gait > 0 ? d.gait.toFixed(2) : '--', cls: d.gait > 0.05 ? 'ok' : 'warn', lbl: d.gait > 0.2 ? 'Active' : d.gait > 0.05 ? 'Idle' : 'Sedentary' },
+        { id: 'tmp', val: d.tmp, fmt: d.tmp > 0 ? d.tmp.toFixed(1) : '--', ...bioStatus(d.tmp, 31, 35, 29, 37) },
+        { id: 'hum', val: d.hum, fmt: d.hum >= 0 ? d.hum.toFixed(0) + '%' : '--', ...bioStatus(d.hum, 30, 70, 20, 80) },
+        { id: 'lux', val: d.lux, fmt: d.lux >= 0 ? d.lux : '--', cls: d.lux > 100 ? 'ok' : d.lux >= 0 ? 'warn' : 'na', lbl: d.lux > 100 ? 'Bright' : d.lux >= 0 ? 'Dim' : '--' },
+        { id: 'prs', val: d.prs, fmt: d.prs > 0 ? d.prs.toFixed(1) : '--', ...bioStatus(d.prs, 99, 103, 95, 107) },
+    ];
+    rows.forEach(r => {
+        const valEl = $(`bio-${r.id}`), dotEl = $(`bio-${r.id}-dot`), lblEl = $(`bio-${r.id}-lbl`);
+        if (valEl) valEl.textContent = r.fmt;
+        if (dotEl) dotEl.className = `bio-dot ${r.cls}`;
+        if (lblEl) lblEl.textContent = r.lbl;
+    });
+}
+
+// ─────────────── Data Stale Detection ───────────────
+let lastDataTime = 0;
+setInterval(() => {
+    if (lastDataTime > 0 && Date.now() - lastDataTime > 5000) {
+        document.body.classList.add('data-stale');
+    } else {
+        document.body.classList.remove('data-stale');
+    }
+}, 1000);
+
+// ─────────────── Recording Indicator ───────────────
+function updateRecIndicator(active) {
+    const el = $('rec-indicator');
+    if (el) el.classList.toggle('active', active);
+}
+
+// ─────────────── Correlation Heatmap ───────────────
+const CORR_KEYS = ['hr', 'sp', 'gsr', 'gait', 'rr', 'tmp', 'hum', 'lux', 'prs', 'nri'];
+const CORR_LABELS = ['HR', 'O2', 'GSR', 'Gait', 'RR', 'Tmp', 'Hum', 'Lux', 'Prs', 'NRI'];
+const corrHistory = {};
+CORR_KEYS.forEach(k => { corrHistory[k] = []; });
+
+function pushCorrData(data) {
+    CORR_KEYS.forEach(k => {
+        const v = data[k === 'sp' ? 'sp' : k];
+        if (v !== undefined && v >= 0) corrHistory[k].push(v);
+        if (corrHistory[k].length > 60) corrHistory[k].shift();
+    });
+}
+
+function pearsonR(a, b) {
+    const n = Math.min(a.length, b.length);
+    if (n < 5) return 0;
+    const x = a.slice(-n), y = b.slice(-n);
+    const mx = x.reduce((s, v) => s + v, 0) / n;
+    const my = y.reduce((s, v) => s + v, 0) / n;
+    let num = 0, dx2 = 0, dy2 = 0;
+    for (let i = 0; i < n; i++) {
+        const dx = x[i] - mx, dy = y[i] - my;
+        num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+    }
+    const denom = Math.sqrt(dx2 * dy2);
+    return denom === 0 ? 0 : num / denom;
+}
+
+function drawCorrelationHeatmap() {
+    const canvas = $('correlation-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const n = CORR_KEYS.length;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width; canvas.height = rect.height;
+
+    const padL = 22, padT = 2, padB = 18;  // left for row labels, bottom for col labels
+    const gridW = canvas.width - padL, gridH = canvas.height - padT - padB;
+    const cellW = gridW / n, cellH = gridH / n;
+    const theme = document.documentElement.getAttribute('data-theme');
+    const textColor = theme === 'dark' ? '#6b7580' : '#6b7280';
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < n; i++) {
+        // Bottom column labels (horizontal, below grid)
+        ctx.fillStyle = textColor;
+        ctx.font = `7px 'JetBrains Mono', monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(CORR_LABELS[i], padL + i * cellW + cellW / 2, padT + gridH + 4);
+
+        // Left row labels (rotated)
+        ctx.save();
+        ctx.translate(8, padT + i * cellH + cellH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+        ctx.fillText(CORR_LABELS[i], 0, 0);
+        ctx.restore();
+
+        for (let j = 0; j < n; j++) {
+            const r = i === j ? 1 : pearsonR(corrHistory[CORR_KEYS[i]], corrHistory[CORR_KEYS[j]]);
+            const x = padL + j * cellW, y = padT + i * cellH;
+
+            // Color: blue (negative) → gray (0) → red (positive)
+            const alpha = Math.min(0.75, Math.abs(r) * 0.75);
+            if (r > 0) ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`;
+            else if (r < 0) ctx.fillStyle = `rgba(59, 130, 246, ${alpha})`;
+            else ctx.fillStyle = 'rgba(128,128,128,0.05)';
+
+            ctx.fillRect(x + 0.5, y + 0.5, cellW - 1, cellH - 1);
+
+            // r-value text inside cell (only if cell is big enough)
+            if (cellW >= 18 && cellH >= 14) {
+                ctx.fillStyle = Math.abs(r) > 0.25 ? 'rgba(255,255,255,0.85)' : textColor;
+                ctx.font = `6px 'JetBrains Mono', monospace`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(r.toFixed(1), x + cellW / 2, y + cellH / 2);
+            }
+        }
+    }
+}
+
 // ─────────────── Charts — Dual-Axis Clinical Style ───────────────
 const chartBase = {
     responsive: true, maintainAspectRatio: false,
     animation: { duration: 150 },
-    plugins: { legend: { display: false } },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+        legend: { display: false },
+        tooltip: { enabled: true, backgroundColor: 'rgba(0,0,0,0.8)', titleFont: { size: 10, family: "'JetBrains Mono'" }, bodyFont: { size: 10, family: "'JetBrains Mono'" }, padding: 6, cornerRadius: 4, displayColors: true, boxWidth: 8, boxHeight: 2 },
+    },
     scales: {
         x: { display: false },
         y: {
@@ -123,39 +372,36 @@ const hrChart = new Chart($('hr-chart'), {
     },
 });
 
-// GSR + Gait dual-axis chart
+// GSR single-axis chart (audit fix: removed broken Gait dual-axis)
 const gsrChart = new Chart($('gsr-chart'), {
     type: 'line',
     data: { labels: [], datasets: [
-        { data: [], label: 'GSR', borderColor: '#f59e0b', backgroundColor: 'transparent', yAxisID: 'y' },
-        { data: [], label: 'Gait', borderColor: '#10b981', backgroundColor: 'transparent', yAxisID: 'y2' },
+        { data: [], label: 'GSR', borderColor: '#f59e0b', backgroundColor: 'transparent' },
     ] },
     options: { ...chartBase,
-        plugins: { legend: { display: true, position: 'top', align: 'end',
-            labels: { boxWidth: 8, boxHeight: 2, font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#4b5563', padding: 8 } } },
-        scales: {
-            x: { display: false },
-            y: { ...chartBase.scales.y, min: 300, max: 700 },
-            y2: { position: 'right', min: 0, max: 1,
-                ticks: { font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#10b981', maxTicksLimit: 3 },
-                grid: { drawOnChartArea: false }, border: { display: false } },
-        },
+        scales: { x: { display: false }, y: { ...chartBase.scales.y, min: 300, max: 700 } },
     },
 });
 
-// Accelerometer 3-axis
+// Accelerometer 3-axis + Gait overlay
 const accelChart = new Chart($('accel-chart'), {
     type: 'line',
     data: { labels: [], datasets: [
-        { data: [], label: 'X', borderColor: '#ef4444', backgroundColor: 'transparent' },
-        { data: [], label: 'Y', borderColor: '#10b981', backgroundColor: 'transparent' },
-        { data: [], label: 'Z', borderColor: '#3b82f6', backgroundColor: 'transparent' },
+        { data: [], label: 'X', borderColor: '#ef4444', backgroundColor: 'transparent', yAxisID: 'y' },
+        { data: [], label: 'Y', borderColor: '#10b981', backgroundColor: 'transparent', yAxisID: 'y' },
+        { data: [], label: 'Z', borderColor: '#3b82f6', backgroundColor: 'transparent', yAxisID: 'y' },
+        { data: [], label: 'Gait', borderColor: '#8b5cf6', backgroundColor: 'transparent', yAxisID: 'y2', borderDash: [4, 2] },
     ] },
     options: { ...chartBase,
         plugins: { legend: { display: true, position: 'top', align: 'end',
-            labels: { boxWidth: 8, boxHeight: 2, usePointStyle: false,
-                font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#4b5563', padding: 8 } } },
-        scales: { ...chartBase.scales, y: { ...chartBase.scales.y, min: -2, max: 2 } },
+            labels: { boxWidth: 8, boxHeight: 2, font: { size: 8, family: "'JetBrains Mono', monospace" }, color: '#4b5563', padding: 6 } } },
+        scales: {
+            x: { display: false },
+            y: { ...chartBase.scales.y, min: -2, max: 2 },
+            y2: { position: 'right', min: 0, max: 1,
+                ticks: { font: { size: 8, family: "'JetBrains Mono'" }, color: '#8b5cf6', maxTicksLimit: 2 },
+                grid: { drawOnChartArea: false }, border: { display: false } },
+        },
     },
 });
 
@@ -249,6 +495,8 @@ function processData(data) {
     const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
     lastUpdate.textContent = timeStr;
     dataLog.push({ ...data, _time: timeStr });
+    if (dataLog.length > 10000) dataLog.shift();
+    lastDataTime = Date.now();
 
     // HR
     if (data.hr > 0) {
@@ -331,10 +579,22 @@ function processData(data) {
     else batteryLevel.textContent = '--%';
 
     pushToHistory(timeLabels, timeStr);
+    pushCorrData(data);
     updateCharts();
+    updateSparklines();
     updateTrends();
+    updateVitalColors();
     updateStatsBar();
-    addLogEntry(timeStr, JSON.stringify(data));
+    checkAlarms();
+    updateBioSummary();
+    updateRecIndicator(isConnected || demoInterval !== null);
+    // Log removed from default view — data preserved in dataLog for CSV export
+
+    // Heartbeat beep on each valid HR reading
+    if (data.hr > 0 && data.ibi > 0) playHeartbeatBeep();
+
+    // Redraw correlation heatmap every 5 seconds
+    if (dataLog.length % 10 === 0) drawCorrelationHeatmap();
 }
 
 function pushToHistory(a, v) { a.push(v); if (a.length > HISTORY_SIZE) a.shift(); }
@@ -366,17 +626,17 @@ function updateCharts() {
     hrChart.data.datasets[1].data = [...spo2History];
     hrChart.update('none');
 
-    // GSR + Gait dual-axis
+    // GSR single-axis
     gsrChart.data.labels = [...timeLabels];
     gsrChart.data.datasets[0].data = [...gsrHistory];
-    gsrChart.data.datasets[1].data = [...gaitHistory];
     gsrChart.update('none');
 
-    // Accelerometer
+    // Accelerometer + Gait overlay
     accelChart.data.labels = [...timeLabels];
     accelChart.data.datasets[0].data = [...accelXHistory];
     accelChart.data.datasets[1].data = [...accelYHistory];
     accelChart.data.datasets[2].data = [...accelZHistory];
+    accelChart.data.datasets[3].data = [...gaitHistory];
     accelChart.update('none');
 }
 
@@ -538,14 +798,7 @@ function stopDemo() {
     if (!isConnected) updateStatus('Offline');
 }
 
-// ─────────────── Collapsible Log ───────────────
-const logToggle = $('log-toggle');
-if (logToggle) {
-    logToggle.addEventListener('click', () => {
-        logContainer.classList.toggle('collapsed');
-        logToggle.classList.toggle('expanded');
-    });
-}
+// Log UI removed from default view — data preserved in dataLog for CSV export
 
 // ─────────────── Events ───────────────
 connectBtn.addEventListener('click', () => { connectBLE(); startInsights(); });

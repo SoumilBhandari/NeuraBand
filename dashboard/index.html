@@ -15,306 +15,176 @@
     <nav class="topbar" role="banner">
         <div class="topbar-brand">
             <div class="brand-icon" aria-hidden="true">
-                <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-                    <circle cx="14" cy="14" r="12" stroke="#0891b2" stroke-width="2" fill="none"/>
-                    <path d="M8 14 L11 14 L13 9 L15 19 L17 14 L20 14" stroke="#0891b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                </svg>
+                <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="12" stroke="#06b6d4" stroke-width="2" fill="none"/><path d="M8 14 L11 14 L13 9 L15 19 L17 14 L20 14" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
             </div>
-            <div class="brand-text">
-                <span class="brand-name">NeuraFy</span>
-                <span class="brand-sub">Clinical Biomarker Monitoring System</span>
-            </div>
+            <span class="brand-name">NeuraFy</span>
         </div>
         <div class="topbar-controls">
-            <button id="connect-btn" class="btn-connect" aria-label="Connect to NeuraFy device via Bluetooth">
-                <span class="btn-icon" aria-hidden="true">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6.5 6.5l11 11M6.5 17.5l11-11M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-                </span>
-                Connect
-            </button>
-            <button id="disconnect-btn" class="btn-disconnect" disabled aria-label="Disconnect from device">Disconnect</button>
-            <button id="reset-btn" class="btn-reset" aria-label="Send reset command to reboot device">Reset</button>
-            <label class="toggle-demo">
-                <input type="checkbox" id="demo-mode" aria-label="Toggle demo mode with synthetic data">
-                <span class="toggle-slider"></span>
-                <span class="toggle-label">Demo</span>
-            </label>
+            <button id="connect-btn" class="btn-connect" aria-label="Connect to device via BLE">Connect</button>
+            <button id="disconnect-btn" class="btn-disconnect" disabled aria-label="Disconnect">Disconnect</button>
+            <button id="reset-btn" class="btn-reset" aria-label="Reset device">Reset</button>
+            <label class="toggle-demo"><input type="checkbox" id="demo-mode" aria-label="Toggle demo mode"><span class="toggle-slider"></span><span class="toggle-label">Demo</span></label>
             <div class="separator" aria-hidden="true"></div>
-            <button class="btn-theme" id="theme-toggle" aria-label="Toggle dark and light theme">
-                <svg class="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                </svg>
-                <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
+            <button class="btn-icon-btn" id="sound-toggle" aria-label="Toggle heartbeat audio"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>
+            <button class="btn-icon-btn" id="fullscreen-btn" aria-label="Toggle fullscreen"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+            <button class="btn-icon-btn" id="theme-toggle" aria-label="Toggle theme">
+                <svg class="icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                <svg class="icon-moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             </button>
         </div>
         <div class="topbar-status" role="status">
-            <div class="status-battery" id="battery" aria-label="Battery level">
-                <svg width="18" height="10" viewBox="0 0 20 12" fill="none" class="battery-svg" aria-hidden="true">
-                    <rect x="0.5" y="0.5" width="17" height="11" rx="2" stroke="currentColor" stroke-opacity="0.4"/>
-                    <rect x="18" y="3" width="2" height="6" rx="1" fill="currentColor" fill-opacity="0.3"/>
-                    <rect class="battery-fill" x="2" y="2" width="14" height="8" rx="1" fill="currentColor"/>
-                </svg>
-                <span id="battery-level">--%</span>
-            </div>
-            <div class="status-connection">
-                <span class="status-dot" id="status-dot"></span>
-                <span id="status-text">Offline</span>
-            </div>
+            <div class="status-battery" aria-label="Battery"><svg width="16" height="9" viewBox="0 0 20 12" fill="none" class="battery-svg" aria-hidden="true"><rect x=".5" y=".5" width="17" height="11" rx="2" stroke="currentColor" stroke-opacity=".4"/><rect x="18" y="3" width="2" height="6" rx="1" fill="currentColor" fill-opacity=".3"/><rect class="battery-fill" x="2" y="2" width="14" height="8" rx="1" fill="currentColor"/></svg><span id="battery-level">--%</span></div>
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Offline</span>
             <span class="status-time" id="last-update">--:--:--</span>
-            <span class="session-timer" id="session-timer" aria-label="Session duration">00:00</span>
-            <span class="modality-badge" aria-label="Number of active sensor modalities">10 Modalities</span>
-            <button id="export-csv-btn" class="btn-export" aria-label="Export session data as CSV file">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                CSV
-            </button>
+            <span class="session-timer" id="session-timer">00:00</span>
+            <span class="rec-indicator" id="rec-indicator"><span class="rec-dot"></span>REC</span>
+            <span class="modality-badge">10 MOD</span>
+            <button id="export-csv-btn" class="btn-export" aria-label="Export CSV"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV</button>
         </div>
     </nav>
 
-    <main class="dashboard">
-        <!-- ROW 1: Critical Vitals (4 large cards) -->
-        <section class="row-vitals">
-            <div class="card vital-card card-hr" id="card-hr">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-cardio" aria-hidden="true"></span>Heart Rate</div>
-                    <span class="card-sensor">MAX30102</span>
+    <div class="alarm-banner hidden" id="alarm-banner" role="alert" aria-live="assertive">
+        <span class="alarm-icon" aria-hidden="true">&#9888;</span>
+        <span class="alarm-text" id="alarm-text">ALERT</span>
+        <button class="alarm-dismiss" id="alarm-dismiss" aria-label="Dismiss">&times;</button>
+    </div>
+
+    <div class="patient-bar">
+        <span class="patient-field"><span class="plbl">Patient</span> Demo Subject</span>
+        <span class="pdiv" aria-hidden="true"></span>
+        <span class="patient-field"><span class="plbl">Age</span> 72</span>
+        <span class="pdiv" aria-hidden="true"></span>
+        <span class="patient-field"><span class="plbl">Sex</span> M</span>
+        <span class="pdiv" aria-hidden="true"></span>
+        <span class="patient-field"><span class="plbl">Session</span> #047</span>
+        <span class="pdiv" aria-hidden="true"></span>
+        <span class="patient-field"><span class="plbl">Clinician</span> Dr. Bhandari</span>
+        <span class="pdiv" aria-hidden="true"></span>
+        <span class="patient-field"><span class="plbl">Protocol</span> AD-Screen v2.0</span>
+    </div>
+
+    <main class="dashboard-grid">
+        <!-- LEFT: Main Panel -->
+        <div class="main-panel">
+            <!-- Vitals Row -->
+            <section class="row-vitals">
+                <div class="card vcard" id="card-hr">
+                    <div class="vcard-head"><span class="cbar cb-cardio"></span>Heart Rate<span class="sensor-tag">MAX30102</span></div>
+                    <div class="vcard-reading"><span class="vval" id="hr-value">--</span><span class="vunit">BPM</span><span class="trend-arrow" id="hr-trend"></span></div>
+                    <div class="spark"><canvas id="spark-hr"></canvas></div>
                 </div>
-                <div class="vital-reading">
-                    <span class="vital-value" id="hr-value">--</span>
-                    <span class="vital-unit">BPM</span>
-                    <span class="trend-arrow" id="hr-trend" aria-label="Trend indicator"></span>
+                <div class="card vcard" id="card-spo2">
+                    <div class="vcard-head"><span class="cbar cb-cardio"></span>SpO2<span class="sensor-tag">PPG</span></div>
+                    <div class="vcard-reading"><span class="vval" id="spo2-value">--</span><span class="vunit">%</span><span class="trend-arrow" id="spo2-trend"></span></div>
+                    <div class="spo2-ring-wrap"><svg viewBox="0 0 120 120" class="spo2-ring"><circle cx="60" cy="60" r="52" class="spo2-ring-bg"/><circle cx="60" cy="60" r="52" class="spo2-ring-fill" id="spo2-ring-fill" stroke-dasharray="326.73" stroke-dashoffset="326.73"/></svg><span class="spo2-rlbl">SpO2</span></div>
                 </div>
-                <div class="card-ref">Normal: 60 – 100 BPM</div>
+                <div class="card vcard" id="card-resp">
+                    <div class="vcard-head"><span class="cbar cb-resp"></span>Respiratory<span class="sensor-tag">PPG</span></div>
+                    <div class="vcard-reading"><span class="vval" id="rr-value">--</span><span class="vunit">br/m</span><span class="trend-arrow" id="rr-trend"></span></div>
+                    <div class="spark"><canvas id="spark-rr"></canvas></div>
+                </div>
+                <div class="card vcard" id="card-nri">
+                    <div class="vcard-head"><span class="cbar cb-risk"></span>Neuro-Risk<span class="sensor-tag">NRI</span></div>
+                    <div class="vcard-reading"><span class="vval" id="nri-value">0</span><span class="vunit">/100</span><span class="trend-arrow" id="nri-trend"></span></div>
+                    <div class="nri-track"><div class="nri-bar low" id="nri-bar" style="width:0%"></div></div>
+                    <div class="spark"><canvas id="spark-nri"></canvas></div>
+                </div>
+            </section>
+
+            <!-- Stats Strip -->
+            <section class="stats-bar" id="stats-bar" role="status">
+                <span class="sg"><span class="sl">HR</span> min <b id="stat-hr-min">--</b> avg <b id="stat-hr-avg">--</b> max <b id="stat-hr-max">--</b></span>
+                <span class="sd"></span>
+                <span class="sg"><span class="sl">SpO2</span> min <b id="stat-sp-min">--</b> avg <b id="stat-sp-avg">--</b> max <b id="stat-sp-max">--</b></span>
+                <span class="sd"></span>
+                <span class="sg"><span class="sl">GSR</span> avg <b id="stat-gsr-avg">--</b></span>
+                <span class="sd"></span>
+                <span class="sg"><span class="sl">Gait</span> avg <b id="stat-gait-avg">--</b></span>
+                <span class="sd"></span>
+                <span class="sg"><span class="sl">NRI</span> avg <b id="stat-nri-avg">--</b> max <b id="stat-nri-max">--</b></span>
+            </section>
+
+            <!-- Charts -->
+            <section class="row-charts">
+                <div class="card chart-card">
+                    <div class="chart-head"><span class="cbar cb-cardio"></span>HR &amp; SpO2<span class="sensor-tag">60s</span></div>
+                    <div class="chart-area"><canvas id="hr-chart"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <div class="chart-head"><span class="cbar cb-auto"></span>GSR<span class="sensor-tag">EDA</span></div>
+                    <div class="chart-area"><canvas id="gsr-chart"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <div class="chart-head"><span class="cbar cb-auto"></span>Accel + Gait<span class="sensor-tag">BMI270</span></div>
+                    <div class="chart-area"><canvas id="accel-chart"></canvas></div>
+                </div>
+            </section>
+
+            <!-- Compact Environmental -->
+            <section class="row-compact">
+                <div class="card ccard"><div class="clbl"><span class="cbar cb-auto"></span>GSR</div><div class="cread"><span class="cval" id="gsr-value">--</span><span class="cunit">raw</span></div></div>
+                <div class="card ccard"><div class="clbl"><span class="cbar cb-auto"></span>Gait</div><div class="cread"><span class="cval" id="gait-value">--</span><span class="cunit">score</span></div></div>
+                <div class="card ccard"><div class="clbl"><span class="cbar cb-resp"></span>Temp</div><div class="cread"><span class="cval" id="tmp-value">--</span><span class="cunit">&deg;C</span></div></div>
+                <div class="card ccard"><div class="clbl"><span class="cbar cb-resp"></span>Hum</div><div class="cread"><span class="cval" id="hum-value">--</span><span class="cunit">%</span></div></div>
+                <div class="card ccard"><div class="clbl"><span class="cbar cb-resp"></span>Light</div><div class="cread"><span class="cval" id="lux-value">--</span><span class="cunit">lux</span></div></div>
+                <div class="card ccard"><div class="clbl"><span class="cbar cb-resp"></span>Pres</div><div class="cread"><span class="cval" id="prs-value">--</span><span class="cunit">kPa</span></div></div>
+            </section>
+        </div>
+
+        <!-- RIGHT: Sidebar -->
+        <aside class="sidebar">
+            <div class="card sidebar-card sidebar-cds" id="card-insights">
+                <div class="sidebar-head"><span class="cbar cb-risk"></span>Clinical Decision Support</div>
+                <div class="insights-container" id="insights-container" aria-live="polite">
+                    <div class="insight-placeholder"><span>Awaiting sensor data</span></div>
+                </div>
+                <div class="bio-summary" id="bio-summary">
+                    <div class="bio-summary-head">Biomarker Summary</div>
+                    <table class="bio-table">
+                        <tr><td class="bio-name">HR</td><td class="bio-val" id="bio-hr">--</td><td><span class="bio-dot na" id="bio-hr-dot"></span></td><td class="bio-label" id="bio-hr-lbl">--</td></tr>
+                        <tr><td class="bio-name">SpO2</td><td class="bio-val" id="bio-sp">--</td><td><span class="bio-dot na" id="bio-sp-dot"></span></td><td class="bio-label" id="bio-sp-lbl">--</td></tr>
+                        <tr><td class="bio-name">Resp</td><td class="bio-val" id="bio-rr">--</td><td><span class="bio-dot na" id="bio-rr-dot"></span></td><td class="bio-label" id="bio-rr-lbl">--</td></tr>
+                        <tr><td class="bio-name">NRI</td><td class="bio-val" id="bio-nri">--</td><td><span class="bio-dot na" id="bio-nri-dot"></span></td><td class="bio-label" id="bio-nri-lbl">--</td></tr>
+                        <tr><td class="bio-name">GSR</td><td class="bio-val" id="bio-gsr">--</td><td><span class="bio-dot na" id="bio-gsr-dot"></span></td><td class="bio-label" id="bio-gsr-lbl">--</td></tr>
+                        <tr><td class="bio-name">Gait</td><td class="bio-val" id="bio-gait">--</td><td><span class="bio-dot na" id="bio-gait-dot"></span></td><td class="bio-label" id="bio-gait-lbl">--</td></tr>
+                        <tr><td class="bio-name">Temp</td><td class="bio-val" id="bio-tmp">--</td><td><span class="bio-dot na" id="bio-tmp-dot"></span></td><td class="bio-label" id="bio-tmp-lbl">--</td></tr>
+                        <tr><td class="bio-name">Hum</td><td class="bio-val" id="bio-hum">--</td><td><span class="bio-dot na" id="bio-hum-dot"></span></td><td class="bio-label" id="bio-hum-lbl">--</td></tr>
+                        <tr><td class="bio-name">Light</td><td class="bio-val" id="bio-lux">--</td><td><span class="bio-dot na" id="bio-lux-dot"></span></td><td class="bio-label" id="bio-lux-lbl">--</td></tr>
+                        <tr><td class="bio-name">Pres</td><td class="bio-val" id="bio-prs">--</td><td><span class="bio-dot na" id="bio-prs-dot"></span></td><td class="bio-label" id="bio-prs-lbl">--</td></tr>
+                    </table>
+                </div>
             </div>
 
-            <div class="card vital-card card-spo2" id="card-spo2">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-cardio" aria-hidden="true"></span>Blood Oxygen</div>
-                    <span class="card-sensor">SpO2</span>
-                </div>
-                <div class="vital-reading">
-                    <span class="vital-value" id="spo2-value">--</span>
-                    <span class="vital-unit">%</span>
-                    <span class="trend-arrow" id="spo2-trend" aria-label="Trend indicator"></span>
-                </div>
-                <div class="spo2-ring-container">
-                    <svg viewBox="0 0 120 120" class="spo2-ring" aria-label="SpO2 percentage ring">
-                        <circle cx="60" cy="60" r="52" class="spo2-ring-bg"/>
-                        <circle cx="60" cy="60" r="52" class="spo2-ring-fill" id="spo2-ring-fill"
-                                stroke-dasharray="326.73" stroke-dashoffset="326.73"/>
-                    </svg>
-                    <div class="spo2-ring-label">SpO2</div>
-                </div>
-                <div class="card-ref">Normal: 95 – 100%</div>
-            </div>
-
-            <div class="card vital-card card-resp" id="card-resp">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-resp" aria-hidden="true"></span>Respiratory Rate</div>
-                    <span class="card-sensor">PPG</span>
-                </div>
-                <div class="vital-reading">
-                    <span class="vital-value" id="rr-value">--</span>
-                    <span class="vital-unit">br/min</span>
-                    <span class="trend-arrow" id="rr-trend" aria-label="Trend indicator"></span>
-                </div>
-                <div class="card-ref">Normal: 12 – 20 breaths/min</div>
-            </div>
-
-            <div class="card vital-card card-nri" id="card-nri">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-risk" aria-hidden="true"></span>Neuro-Risk Index</div>
-                    <span class="card-sensor">NRI</span>
-                </div>
-                <div class="vital-reading">
-                    <span class="vital-value" id="nri-value">0</span>
-                    <span class="vital-unit">/100</span>
-                    <span class="trend-arrow" id="nri-trend" aria-label="Trend indicator"></span>
-                </div>
-                <div class="nri-track"><div class="nri-bar low" id="nri-bar" style="width: 0%"></div></div>
-                <div class="card-ref nri-disclaimer">Research prototype — not a diagnostic tool</div>
-            </div>
-        </section>
-
-        <!-- ROW 2: Session Statistics Bar -->
-        <section class="stats-bar" id="stats-bar" role="status" aria-label="Session statistics">
-            <div class="stat-group">
-                <span class="stat-label">HR</span>
-                <span class="stat-item">min <span id="stat-hr-min">--</span></span>
-                <span class="stat-item">avg <span id="stat-hr-avg">--</span></span>
-                <span class="stat-item">max <span id="stat-hr-max">--</span></span>
-            </div>
-            <div class="stat-divider" aria-hidden="true"></div>
-            <div class="stat-group">
-                <span class="stat-label">SpO2</span>
-                <span class="stat-item">min <span id="stat-sp-min">--</span></span>
-                <span class="stat-item">avg <span id="stat-sp-avg">--</span></span>
-                <span class="stat-item">max <span id="stat-sp-max">--</span></span>
-            </div>
-            <div class="stat-divider" aria-hidden="true"></div>
-            <div class="stat-group">
-                <span class="stat-label">GSR</span>
-                <span class="stat-item">avg <span id="stat-gsr-avg">--</span></span>
-            </div>
-            <div class="stat-divider" aria-hidden="true"></div>
-            <div class="stat-group">
-                <span class="stat-label">Gait</span>
-                <span class="stat-item">avg <span id="stat-gait-avg">--</span></span>
-            </div>
-            <div class="stat-divider" aria-hidden="true"></div>
-            <div class="stat-group">
-                <span class="stat-label">NRI</span>
-                <span class="stat-item">avg <span id="stat-nri-avg">--</span></span>
-                <span class="stat-item">max <span id="stat-nri-max">--</span></span>
-            </div>
-        </section>
-
-        <!-- ROW 3: Time Series Charts -->
-        <section class="row-charts">
-            <div class="card chart-card">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-cardio" aria-hidden="true"></span>Heart Rate &amp; SpO2</div>
-                    <span class="card-sensor">60s window</span>
-                </div>
-                <div class="card-chart chart-wide" aria-label="Heart rate and SpO2 time series chart">
-                    <canvas id="hr-chart"></canvas>
-                </div>
-            </div>
-            <div class="card chart-card">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-autonomic" aria-hidden="true"></span>GSR &amp; Gait Activity</div>
-                    <span class="card-sensor">60s window</span>
-                </div>
-                <div class="card-chart chart-wide" aria-label="GSR and gait activity time series chart">
-                    <canvas id="gsr-chart"></canvas>
-                </div>
-            </div>
-            <div class="card chart-card">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-autonomic" aria-hidden="true"></span>Accelerometer (X/Y/Z)</div>
-                    <span class="card-sensor">BMI270</span>
-                </div>
-                <div class="card-chart chart-wide" aria-label="3-axis accelerometer time series chart">
-                    <canvas id="accel-chart"></canvas>
-                </div>
-            </div>
-        </section>
-
-        <!-- ROW 4: Autonomic & Environmental (compact 6-column) -->
-        <section class="row-compact">
-            <div class="card compact-card" id="card-gsr">
-                <div class="compact-label"><span class="category-bar cat-autonomic" aria-hidden="true"></span>EDA / GSR</div>
-                <div class="compact-reading"><span class="compact-value" id="gsr-value">--</span><span class="compact-unit">raw</span></div>
-            </div>
-            <div class="card compact-card" id="card-motion">
-                <div class="compact-label"><span class="category-bar cat-autonomic" aria-hidden="true"></span>Gait</div>
-                <div class="compact-reading"><span class="compact-value" id="gait-value">--</span><span class="compact-unit">score</span></div>
-            </div>
-            <div class="card compact-card" id="card-temp">
-                <div class="compact-label"><span class="category-bar cat-resp" aria-hidden="true"></span>Skin Temp</div>
-                <div class="compact-reading"><span class="compact-value" id="tmp-value">--</span><span class="compact-unit">&deg;C</span></div>
-            </div>
-            <div class="card compact-card" id="card-hum">
-                <div class="compact-label"><span class="category-bar cat-resp" aria-hidden="true"></span>Humidity</div>
-                <div class="compact-reading"><span class="compact-value" id="hum-value">--</span><span class="compact-unit">%</span></div>
-            </div>
-            <div class="card compact-card" id="card-lux">
-                <div class="compact-label"><span class="category-bar cat-resp" aria-hidden="true"></span>Light</div>
-                <div class="compact-reading"><span class="compact-value" id="lux-value">--</span><span class="compact-unit">lux</span></div>
-            </div>
-            <div class="card compact-card" id="card-prs">
-                <div class="compact-label"><span class="category-bar cat-resp" aria-hidden="true"></span>Pressure</div>
-                <div class="compact-reading"><span class="compact-value" id="prs-value">--</span><span class="compact-unit">kPa</span></div>
-            </div>
-        </section>
-
-        <!-- ROW 5: Sleep + HRV Detail (2-column) -->
-        <section class="row-detail">
-            <div class="card detail-card card-sleep" id="card-sleep">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-cardio" aria-hidden="true"></span>Sleep Quality</div>
-                    <span class="card-sensor">Actigraphy</span>
-                </div>
-                <div class="detail-grid">
-                    <div class="detail-cell">
-                        <div class="detail-num" id="slp-value">--</div>
-                        <div class="detail-tag">Score <span class="detail-unit">/100</span></div>
-                    </div>
-                    <div class="detail-cell">
-                        <div class="sleep-state awake" id="slp-state">Awake</div>
-                        <div class="detail-tag">State</div>
-                    </div>
-                </div>
-                <div class="card-ref">&gt;70 good, 50–70 fair, &lt;50 poor</div>
-            </div>
-
-            <div class="card detail-card card-hrv" id="card-hrv">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-cardio" aria-hidden="true"></span>Heart Rate Variability</div>
-                    <span class="card-sensor">HRV</span>
-                </div>
-                <div class="detail-grid detail-grid-3">
-                    <div class="detail-cell">
-                        <div class="detail-num" id="hrv-sdnn">--</div>
-                        <div class="detail-tag">SDNN <span class="detail-unit">ms</span></div>
-                    </div>
-                    <div class="detail-cell">
-                        <div class="detail-num" id="hrv-rmssd">--</div>
-                        <div class="detail-tag">RMSSD <span class="detail-unit">ms</span></div>
-                    </div>
-                    <div class="detail-cell">
-                        <div class="detail-num" id="hrv-ibi">--</div>
-                        <div class="detail-tag">IBI <span class="detail-unit">ms</span></div>
-                    </div>
+            <div class="card sidebar-card sidebar-hrv" id="card-hrv">
+                <div class="sidebar-head"><span class="cbar cb-cardio"></span>HRV</div>
+                <div class="hrv-row">
+                    <div class="hrv-cell"><span class="hrv-num" id="hrv-sdnn">--</span><span class="hrv-tag">SDNN</span></div>
+                    <div class="hrv-cell"><span class="hrv-num" id="hrv-rmssd">--</span><span class="hrv-tag">RMSSD</span></div>
+                    <div class="hrv-cell"><span class="hrv-num" id="hrv-ibi">--</span><span class="hrv-tag">IBI</span></div>
                 </div>
                 <div class="hrv-status" id="hrv-status">Awaiting data</div>
-                <div class="card-ref">SDNN &lt; 50 ms may indicate autonomic dysfunction</div>
             </div>
-        </section>
 
-        <!-- ROW 6: Clinical Decision Support -->
-        <section class="row-full">
-            <div class="card card-insights" id="card-insights">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-risk" aria-hidden="true"></span>Clinical Decision Support</div>
-                    <span class="card-sensor">CDS</span>
-                </div>
-                <div class="insights-container" id="insights-container" aria-live="polite">
-                    <div class="insight-placeholder">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" class="insight-icon-placeholder" aria-hidden="true">
-                            <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/>
-                            <line x1="9" y1="21" x2="15" y2="21"/>
-                        </svg>
-                        <span>Awaiting sensor data for clinical analysis</span>
-                    </div>
+            <div class="card sidebar-card sidebar-sleep" id="card-sleep">
+                <div class="sidebar-head"><span class="cbar cb-cardio"></span>Sleep</div>
+                <div class="sleep-row">
+                    <span class="sleep-score" id="slp-value">--</span><span class="sleep-unit">/100</span>
+                    <span class="sleep-state awake" id="slp-state">Awake</span>
                 </div>
             </div>
-        </section>
 
-        <!-- ROW 7: Data Transmission Log (collapsible) -->
-        <section class="row-full">
-            <div class="card card-stream" id="card-log">
-                <div class="card-header">
-                    <div class="card-label"><span class="category-bar cat-resp" aria-hidden="true"></span>Data Transmission Log</div>
-                    <div class="log-controls">
-                        <span class="card-sensor">BLE 1Hz</span>
-                        <button class="btn-log-toggle" id="log-toggle" aria-label="Expand or collapse data log">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="stream-container collapsed" id="log-container" aria-live="polite">
-                    <div class="stream-placeholder">Awaiting device connection</div>
-                </div>
+            <div class="card sidebar-card sidebar-corr">
+                <div class="sidebar-head"><span class="cbar cb-risk"></span>Correlation</div>
+                <div class="corr-wrap"><canvas id="correlation-canvas"></canvas></div>
             </div>
-        </section>
+        </aside>
     </main>
 
     <footer class="site-footer">
-        <span>NeuraFy &mdash; Alzheimer's Disease Early Detection Research</span>
+        <span>NeuraFy &mdash; AD Early Detection</span>
         <span class="footer-divider" aria-hidden="true">|</span>
-        <span class="footer-disclaimer">Investigational device &mdash; not for clinical diagnosis</span>
+        <span class="footer-disclaimer">Investigational &mdash; not for diagnosis</span>
     </footer>
 
     <script src="app.js"></script>
