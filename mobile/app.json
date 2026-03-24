@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "NeuraFy",
+    "slug": "neurafy-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#060a13"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "NeuraFy needs Bluetooth to connect to your wearable biomarker monitor.",
+        "NSBluetoothPeripheralUsageDescription": "NeuraFy needs Bluetooth to receive health data from your device."
+      }
+    },
+    "android": {
+      "permissions": [
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_ADVERTISE",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      ["react-native-ble-plx", { "isBackgroundEnabled": false, "modes": ["peripheral", "central"] }]
+    ]
+  }
+}
