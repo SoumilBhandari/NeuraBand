@@ -1,4 +1,4 @@
-# NeuraFy
+# NeuraFy by Soumil Bhandari & Rishik
 
 **Wearable Biomarker Monitor for Alzheimer's Disease Early Detection**
 
