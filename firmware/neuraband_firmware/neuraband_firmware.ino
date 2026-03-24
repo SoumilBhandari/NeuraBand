@@ -18,8 +18,21 @@
  *   - Device Status (Read):  19B10002-E8F2-537E-4F6C-D104768A1214
  *   - Reset Command (Write): 19B10003-E8F2-537E-4F6C-D104768A1214 (write 0x01 to reboot)
  *
+ * Modalities (7 biomarker streams):
+ *   1. Heart rate + HRV (MAX30102 PPG)
+ *   2. Blood oxygen SpO2 (MAX30102 pulse oximetry)
+ *   3. Electrodermal activity (Grove GSR + built-in electrodes)
+ *   4. Gait variability (BMI270 IMU accelerometer)
+ *   5. Respiratory rate (extracted from PPG waveform envelope)
+ *   6. Skin temperature (HS3003 onboard sensor, circadian rhythm tracking)
+ *   7. Sleep quality (BMI270 actigraphy, Cole-Kripke algorithm)
+ *   8. Skin humidity (HS3003, sympathetic sweat response)
+ *   9. Ambient light (APDS9960, circadian light exposure tracking)
+ *  10. Barometric pressure (LPS22HB, altitude/floor detection)
+ *   + Composite Neuro-Risk Index (weighted fusion of all streams)
+ *
  * JSON format (sent every 1 second):
- *   {"hr":72,"sp":98,"gsr":487,"gait":0.42,"ibi":832,"bt":85,"ts":12345}
+ *   {"hr":72,"sp":98,"gsr":487,"gait":0.42,"ibi":832,"rr":16,"tmp":32.4,"slp":0,"slps":0,"nri":34,"bt":85,"ts":12345}
  *
  * LED Indicators:
  *   - Green (LED_BUILTIN or D13): BLE central connected
@@ -33,6 +46,9 @@
 #include <ArduinoBLE.h>
 #include <Wire.h>
 #include <Arduino_BMI270_BMM150.h>
+#include <Arduino_HS300x.h>    // Onboard HS3003 temperature/humidity sensor
+#include <Arduino_APDS9960.h>  // Onboard APDS9960 light/proximity/color sensor
+#include <Arduino_LPS22HB.h>   // Onboard LPS22HB barometric pressure sensor
 #include "MAX30105.h"          // SparkFun MAX3010x library (works for MAX30102)
 #include "heartRate.h"         // SparkFun beat detection algorithm
 
@@ -118,6 +134,56 @@ float gyroX  = 0.0f, gyroY  = 0.0f, gyroZ  = 0.0f;
 // Computed as exponential moving average of |accelMag - 1.0|
 float gaitScore = 0.0f;
 static const float GAIT_ALPHA = 0.1f;  // EMA smoothing factor
+
+// ─────────────────────────────────────────────────────────────
+// Respiratory Rate — extracted from MAX30102 IR signal envelope
+// Breathing modulates PPG amplitude via respiratory sinus arrhythmia
+// ─────────────────────────────────────────────────────────────
+static const int RESP_BUF_SIZE = 500;  // 10 seconds at 50Hz
+float respBuffer[RESP_BUF_SIZE];       // IR signal envelope
+int respBufIdx = 0;
+bool respBufFull = false;
+int16_t respRate = -1;                 // breaths per minute
+
+// ─────────────────────────────────────────────────────────────
+// Skin Temperature — HS3003 onboard sensor (circadian tracking)
+// ─────────────────────────────────────────────────────────────
+bool hs300x_ok = false;
+float skinTemp = -1.0f;
+float skinHumidity = -1.0f;
+float tempMin = 100.0f, tempMax = -40.0f;
+uint32_t lastTempRead = 0;
+static const uint32_t TEMP_INTERVAL = 10000;  // 10 seconds (slow-changing)
+
+// ─────────────────────────────────────────────────────────────
+// Ambient Light — APDS9960 onboard sensor (circadian tracking)
+// ─────────────────────────────────────────────────────────────
+bool apds_ok = false;
+int ambientLight = -1;  // clear channel value (proxy for lux)
+
+// ─────────────────────────────────────────────────────────────
+// Barometric Pressure — LPS22HB onboard sensor (altitude/floor)
+// ─────────────────────────────────────────────────────────────
+bool baro_ok = false;
+float baroPressure = -1.0f;  // kPa
+
+// ─────────────────────────────────────────────────────────────
+// Sleep Actigraphy — simplified Cole-Kripke from BMI270
+// Classifies sleep/wake from 5-minute motion intensity window
+// ─────────────────────────────────────────────────────────────
+static const int SLEEP_BUF_SIZE = 300; // 5 minutes at 1Hz
+float sleepBuffer[SLEEP_BUF_SIZE];
+int sleepBufIdx = 0;
+int sleepBufCount = 0;
+int8_t sleepScore = -1;                // 0-100 quality
+bool isSleeping = false;
+
+// ─────────────────────────────────────────────────────────────
+// Composite Neuro-Risk Index — weighted multimodal fusion
+// Mirrors the science fair board's "probabilistic risk estimates"
+// NOT diagnostic — demonstration of multimodal sensor fusion
+// ─────────────────────────────────────────────────────────────
+int8_t neuroRiskIndex = 0;
 
 // ─────────────────────────────────────────────────────────────
 // Timing — all non-blocking via millis()
@@ -247,6 +313,36 @@ void setup() {
     pinMode(GSR_PIN, INPUT);
     Serial.println(F("GSR sensor on A0: OK"));
 
+    // ── HS3003 Temperature Sensor ──
+    Serial.print(F("Initializing HS3003 temp... "));
+    if (HS300x.begin()) {
+        Serial.println(F("OK"));
+        hs300x_ok = true;
+    } else {
+        Serial.println(F("FAILED — onboard temp sensor not responding"));
+        hs300x_ok = false;
+    }
+
+    // ── APDS9960 Light Sensor ──
+    Serial.print(F("Initializing APDS9960 light... "));
+    if (APDS.begin()) {
+        Serial.println(F("OK"));
+        apds_ok = true;
+    } else {
+        Serial.println(F("FAILED — onboard light sensor not responding"));
+        apds_ok = false;
+    }
+
+    // ── LPS22HB Barometric Pressure ──
+    Serial.print(F("Initializing LPS22HB pressure... "));
+    if (BARO.begin()) {
+        Serial.println(F("OK"));
+        baro_ok = true;
+    } else {
+        Serial.println(F("FAILED — onboard pressure sensor not responding"));
+        baro_ok = false;
+    }
+
     // ── Battery Monitor ──
     pinMode(BATTERY_PIN, INPUT);
 
@@ -269,11 +365,17 @@ void setup() {
     BLE.addService(neurafyService);
 
     // Set initial status
-    String statusJson = "{\"fw\":\"1.0\",\"max\":";
+    String statusJson = "{\"fw\":\"2.0\",\"max\":";
     statusJson += max30102_ok ? "1" : "0";
     statusJson += ",\"imu\":";
     statusJson += imu_ok ? "1" : "0";
-    statusJson += ",\"gsr\":1}";
+    statusJson += ",\"tmp\":";
+    statusJson += hs300x_ok ? "1" : "0";
+    statusJson += ",\"lux\":";
+    statusJson += apds_ok ? "1" : "0";
+    statusJson += ",\"bar\":";
+    statusJson += baro_ok ? "1" : "0";
+    statusJson += ",\"gsr\":1,\"mod\":10}";  // 10 modalities
     deviceStatusChar.writeValue(statusJson);
 
     // Start advertising — 100ms interval balances discoverability and power
@@ -287,6 +389,10 @@ void setup() {
     // Initialize beat detection arrays
     for (int i = 0; i < RATE_SIZE; i++) rates[i] = 0;
     for (int i = 0; i < IBI_HISTORY_SIZE; i++) ibiHistory[i] = 0;
+
+    // Initialize new sensor buffers
+    for (int i = 0; i < RESP_BUF_SIZE; i++) respBuffer[i] = 0;
+    for (int i = 0; i < SLEEP_BUF_SIZE; i++) sleepBuffer[i] = 0;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -304,6 +410,12 @@ void readMAX30102() {
         lastIBI = 0;
         return;
     }
+
+    // Store IR value for respiratory rate extraction
+    // Breathing modulates IR amplitude — low-frequency envelope gives resp rate
+    respBuffer[respBufIdx] = (float)irValue;
+    respBufIdx = (respBufIdx + 1) % RESP_BUF_SIZE;
+    if (respBufIdx == 0) respBufFull = true;
 
     // Beat detection using SparkFun algorithm
     if (checkForBeat(irValue)) {
@@ -413,6 +525,174 @@ void readIMU() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// COMPUTE RESPIRATORY RATE — from PPG signal envelope
+// Uses zero-crossing count on the low-pass filtered IR signal.
+// ─────────────────────────────────────────────────────────────
+void computeRespRate() {
+    if (!respBufFull) { respRate = -1; return; }
+
+    // Simple moving average filter (window=100 ≈ 2 sec at 50Hz)
+    static const int WINDOW = 100;
+    float filtered[RESP_BUF_SIZE - WINDOW];
+    for (int i = 0; i < RESP_BUF_SIZE - WINDOW; i++) {
+        float sum = 0;
+        for (int j = 0; j < WINDOW; j++) {
+            int idx = (respBufIdx + i + j) % RESP_BUF_SIZE;
+            sum += respBuffer[idx];
+        }
+        filtered[i] = sum / WINDOW;
+    }
+
+    // Count zero-crossings of the derivative (peaks in envelope = breaths)
+    int crossings = 0;
+    int len = RESP_BUF_SIZE - WINDOW - 1;
+    for (int i = 1; i < len; i++) {
+        float d1 = filtered[i] - filtered[i-1];
+        float d2 = filtered[i+1] - filtered[i];
+        if (d1 > 0 && d2 < 0) crossings++;  // peak detected
+    }
+
+    // Buffer is 10 seconds → multiply by 6 for breaths per minute
+    int rr = crossings * 6;
+
+    // Validate physiological range (8-30 breaths/min)
+    if (rr >= 8 && rr <= 30) {
+        respRate = rr;
+    }
+    // else keep previous value
+}
+
+// ─────────────────────────────────────────────────────────────
+// READ TEMPERATURE — HS3003 onboard sensor
+// ─────────────────────────────────────────────────────────────
+void readTemperature() {
+    if (!hs300x_ok) return;
+
+    float t = HS300x.readTemperature();
+    if (t > -10.0f && t < 60.0f) {
+        skinTemp = t;
+        if (t < tempMin) tempMin = t;
+        if (t > tempMax) tempMax = t;
+    }
+
+    // Humidity from same sensor — no extra init needed
+    float h = HS300x.readHumidity();
+    if (h >= 0.0f && h <= 100.0f) {
+        skinHumidity = h;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// READ AMBIENT LIGHT — APDS9960 clear channel
+// ─────────────────────────────────────────────────────────────
+void readAmbientLight() {
+    if (!apds_ok) return;
+    int r, g, b, c;
+    if (APDS.colorAvailable()) {
+        APDS.readColor(r, g, b, c);
+        ambientLight = c;  // clear channel = ambient light intensity
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// READ BAROMETRIC PRESSURE — LPS22HB
+// ─────────────────────────────────────────────────────────────
+void readBaroPressure() {
+    if (!baro_ok) return;
+    float p = BARO.readPressure();
+    if (p > 80.0f && p < 120.0f) {  // sanity check (kPa range)
+        baroPressure = p;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SLEEP ACTIGRAPHY — simplified Cole-Kripke from IMU
+// Classifies sleep vs wake based on 5-minute motion intensity.
+// ─────────────────────────────────────────────────────────────
+void updateSleepActigraphy() {
+    // Activity count = deviation from 1g (gravity-subtracted magnitude)
+    float mag = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+    float activity = fabs(mag - 1.0f);
+
+    sleepBuffer[sleepBufIdx] = activity;
+    sleepBufIdx = (sleepBufIdx + 1) % SLEEP_BUF_SIZE;
+    if (sleepBufCount < SLEEP_BUF_SIZE) sleepBufCount++;
+
+    // Need at least 60 seconds of data
+    if (sleepBufCount < 60) { sleepScore = -1; return; }
+
+    // Mean activity over the buffer (up to 5 minutes)
+    float sum = 0;
+    for (int i = 0; i < sleepBufCount; i++) sum += sleepBuffer[i];
+    float meanActivity = sum / sleepBufCount;
+
+    // Sleep/wake threshold: < 0.05g mean activity over window = sleeping
+    isSleeping = (meanActivity < 0.05f);
+
+    // Sleep score: percentage of low-activity epochs in the buffer
+    int quietEpochs = 0;
+    for (int i = 0; i < sleepBufCount; i++) {
+        if (sleepBuffer[i] < 0.05f) quietEpochs++;
+    }
+    sleepScore = (int8_t)((float)quietEpochs / sleepBufCount * 100.0f);
+}
+
+// ─────────────────────────────────────────────────────────────
+// COMPUTE NEURO-RISK INDEX — weighted multimodal fusion
+// Produces a 0-100 composite score from all sensor streams.
+// This parallels the science fair board's stacked meta-model.
+// NOT diagnostic — a demonstration of sensor fusion.
+// ─────────────────────────────────────────────────────────────
+void computeNeuroRiskIndex() {
+    float risk = 0.0f;
+
+    // HRV: compute SDNN from IBI history
+    if (ibiCount >= 10) {
+        float ibiMean = 0;
+        for (int i = 0; i < ibiCount; i++) ibiMean += ibiHistory[i];
+        ibiMean /= ibiCount;
+        float ibiVar = 0;
+        for (int i = 0; i < ibiCount; i++) {
+            float d = ibiHistory[i] - ibiMean;
+            ibiVar += d * d;
+        }
+        float sdnn = sqrt(ibiVar / ibiCount);
+        // Low SDNN (<50ms) = autonomic dysfunction
+        if (sdnn < 50.0f) risk += 25.0f * (1.0f - sdnn / 50.0f);
+    }
+
+    // SpO2: oxygenation concern
+    if (spo2Valid && spo2Value < 96) {
+        risk += 20.0f * (1.0f - (float)spo2Value / 100.0f);
+    }
+
+    // Gait: sedentary / motor deficit
+    if (gaitScore < 0.1f) {
+        risk += 15.0f;
+    }
+
+    // GSR: stress / EDA anomaly
+    if (gsrValue > 600) {
+        risk += 15.0f * min(1.0f, (float)(gsrValue - 600) / 200.0f);
+    }
+
+    // Respiratory rate: concern if outside normal
+    if (respRate > 0 && respRate < 12) {
+        risk += 10.0f;
+    }
+
+    // Sleep: fragmentation
+    if (sleepScore >= 0 && sleepScore < 50) {
+        risk += 15.0f * (1.0f - (float)sleepScore / 50.0f);
+    }
+
+    // Clamp to 0-100
+    if (risk < 0) risk = 0;
+    if (risk > 100) risk = 100;
+    neuroRiskIndex = (int8_t)risk;
+}
+
+// ─────────────────────────────────────────────────────────────
 // BUILD JSON PAYLOAD
 // ─────────────────────────────────────────────────────────────
 String buildJSON() {
@@ -443,6 +723,22 @@ String buildJSON() {
     json += String(accelY, 2);
     json += ",\"az\":";
     json += String(accelZ, 2);
+    json += ",\"rr\":";
+    json += String(respRate);
+    json += ",\"tmp\":";
+    json += (skinTemp > 0) ? String(skinTemp, 1) : "-1";
+    json += ",\"hum\":";
+    json += (skinHumidity >= 0) ? String(skinHumidity, 1) : "-1";
+    json += ",\"lux\":";
+    json += String(ambientLight);
+    json += ",\"prs\":";
+    json += (baroPressure > 0) ? String(baroPressure, 1) : "-1";
+    json += ",\"slp\":";
+    json += String(sleepScore);
+    json += ",\"slps\":";
+    json += isSleeping ? "1" : "0";
+    json += ",\"nri\":";
+    json += String(neuroRiskIndex);
     json += ",\"bt\":";
     json += String(batteryPercent);
     json += ",\"ts\":";
@@ -482,12 +778,31 @@ void loop() {
         readIMU();
     }
 
+    // ── Temperature + Humidity + Pressure at 0.1Hz (every 10 seconds) ──
+    if (now - lastTempRead >= TEMP_INTERVAL) {
+        lastTempRead = now;
+        readTemperature();
+        readBaroPressure();
+    }
+
     // ── BLE Transmission at 1Hz (every 1000ms) ──
     if (now - lastBLETransmit >= BLE_INTERVAL) {
         lastBLETransmit = now;
 
         // Update SpO2 once per second (doesn't need 50Hz sampling)
         computeSpO2();
+
+        // Update ambient light (1Hz — light doesn't change fast)
+        readAmbientLight();
+
+        // Update respiratory rate from PPG envelope
+        computeRespRate();
+
+        // Update sleep actigraphy
+        updateSleepActigraphy();
+
+        // Compute composite neuro-risk index
+        computeNeuroRiskIndex();
 
         // Update battery level
         batteryPercent = estimateBattery();

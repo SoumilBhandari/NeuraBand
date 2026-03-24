@@ -1,7 +1,8 @@
 /*
- * NeuraFy Dashboard — Clinical Interface
- * Web Bluetooth client with dual theme, clinical decision
- * support engine, and real-time chart rendering.
+ * NeuraFy Dashboard — Clinical-Grade Interface v2
+ * Web Bluetooth client with 10-modality monitoring,
+ * trend detection, session statistics, dual-axis charts,
+ * clinical decision support, and real-time streaming.
  * Chrome desktop only (Web Bluetooth API).
  */
 
@@ -17,14 +18,32 @@ let isConnected = false, demoInterval = null;
 let sessionStartTime = null, sessionTimerInterval = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 3;
-const dataLog = [];  // stores all received data for CSV export
+const dataLog = [];
+
 const HISTORY_SIZE = 60;
-const hrHistory = [], gsrHistory = [];
+const hrHistory = [], spo2History = [], gsrHistory = [], gaitHistory = [], nriHistory = [], rrHistory = [];
 const accelXHistory = [], accelYHistory = [], accelZHistory = [];
 const timeLabels = [];
 const ibiBuffer = [], IBI_BUFFER_SIZE = 60;
-let latestData = { hr: -1, sp: -1, gsr: 0, gait: 0, ibi: -1, sdnn: -1, rmssd: -1 };
+let latestData = { hr: -1, sp: -1, gsr: 0, gait: 0, ibi: -1, sdnn: -1, rmssd: -1, rr: -1, tmp: -1, slp: -1, slps: 0, nri: 0, hum: -1, lux: -1, prs: -1 };
 let insightsTimer = null;
+
+// Session statistics
+const sessionStats = {};
+['hr','sp','gsr','gait','nri','rr'].forEach(k => { sessionStats[k] = { min: Infinity, max: -Infinity, sum: 0, count: 0 }; });
+
+function updateSessionStat(key, val) {
+    if (val < 0 || val === undefined) return;
+    const s = sessionStats[key];
+    if (!s) return;
+    if (val < s.min) s.min = val;
+    if (val > s.max) s.max = val;
+    s.sum += val;
+    s.count++;
+}
+function getStatAvg(key) { const s = sessionStats[key]; return s && s.count > 0 ? Math.round(s.sum / s.count) : '--'; }
+function getStatMin(key) { const s = sessionStats[key]; return s && s.count > 0 ? Math.round(s.min) : '--'; }
+function getStatMax(key) { const s = sessionStats[key]; return s && s.count > 0 ? Math.round(s.max) : '--'; }
 
 // ─────────────── DOM ───────────────
 const $ = id => document.getElementById(id);
@@ -38,12 +57,10 @@ const hrvSdnn = $('hrv-sdnn'), hrvRmssd = $('hrv-rmssd'), hrvIbi = $('hrv-ibi');
 const hrvStatus = $('hrv-status'), logContainer = $('log-container');
 const spo2RingFill = $('spo2-ring-fill'), insightsContainer = $('insights-container');
 const cardHR = $('card-hr'), cardSpo2 = $('card-spo2');
-const cardGSR = $('card-gsr'), cardMotion = $('card-motion'), cardHRV = $('card-hrv');
 const themeToggle = $('theme-toggle');
 
 // ─────────────── Theme ───────────────
 function getTheme() { return localStorage.getItem('neurafy-theme') || 'dark'; }
-
 function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('neurafy-theme', theme);
@@ -51,13 +68,14 @@ function setTheme(theme) {
 }
 
 function updateChartTheme(theme) {
-    if (typeof hrChart === 'undefined') return;
-    const grid = theme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)';
-    const tick = theme === 'dark' ? '#3b4252' : '#9ca3af';
-    const legend = theme === 'dark' ? '#4b5563' : '#9ca3af';
+    const grid = theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)';
+    const tick = theme === 'dark' ? '#2d3748' : '#9ca3af';
     [hrChart, gsrChart, accelChart].forEach(c => {
-        if (c.options.scales.y) { c.options.scales.y.grid.color = grid; c.options.scales.y.ticks.color = tick; }
-        if (c.options.plugins.legend?.labels) c.options.plugins.legend.labels.color = legend;
+        Object.values(c.options.scales).forEach(axis => {
+            if (axis.grid) axis.grid.color = grid;
+            if (axis.ticks) axis.ticks.color = tick;
+        });
+        if (c.options.plugins.legend?.labels) c.options.plugins.legend.labels.color = tick;
         c.update('none');
     });
 }
@@ -67,41 +85,71 @@ themeToggle.addEventListener('click', () => {
     setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 });
 
-// ─────────────── Charts — clinical flat style ───────────────
+// ─────────────── Charts — Dual-Axis Clinical Style ───────────────
 const chartBase = {
     responsive: true, maintainAspectRatio: false,
-    animation: { duration: 200 },
+    animation: { duration: 150 },
     plugins: { legend: { display: false } },
     scales: {
         x: { display: false },
         y: {
-            ticks: { font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#3b4252', maxTicksLimit: 4 },
-            grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+            position: 'left',
+            ticks: { font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#2d3748', maxTicksLimit: 3 },
+            grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
             border: { display: false },
         },
     },
-    elements: { point: { radius: 0 }, line: { tension: 0.3, borderWidth: 2 } },
+    elements: { point: { radius: 0 }, line: { tension: 0.3, borderWidth: 1.5 } },
     layout: { padding: { left: 0, right: 0, top: 2, bottom: 0 } },
 };
 
+// HR + SpO2 dual-axis chart
 const hrChart = new Chart($('hr-chart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ data: [], borderColor: '#dc2626', backgroundColor: 'transparent', fill: false }] },
-    options: { ...chartBase, scales: { ...chartBase.scales, y: { ...chartBase.scales.y, min: 50, max: 120, ticks: { ...chartBase.scales.y.ticks, maxTicksLimit: 3 } } } },
+    data: { labels: [], datasets: [
+        { data: [], label: 'HR', borderColor: '#ef4444', backgroundColor: 'transparent', yAxisID: 'y' },
+        { data: [], label: 'SpO2', borderColor: '#06b6d4', backgroundColor: 'transparent', yAxisID: 'y2' },
+    ] },
+    options: { ...chartBase,
+        plugins: { legend: { display: true, position: 'top', align: 'end',
+            labels: { boxWidth: 8, boxHeight: 2, font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#4b5563', padding: 8 } } },
+        scales: {
+            x: { display: false },
+            y: { ...chartBase.scales.y, min: 50, max: 120 },
+            y2: { position: 'right', min: 88, max: 100,
+                ticks: { font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#06b6d4', maxTicksLimit: 3 },
+                grid: { drawOnChartArea: false }, border: { display: false } },
+        },
+    },
 });
 
+// GSR + Gait dual-axis chart
 const gsrChart = new Chart($('gsr-chart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ data: [], borderColor: '#d97706', backgroundColor: 'transparent', fill: false }] },
-    options: { ...chartBase, scales: { ...chartBase.scales, y: { ...chartBase.scales.y, min: 300, max: 700 } } },
+    data: { labels: [], datasets: [
+        { data: [], label: 'GSR', borderColor: '#f59e0b', backgroundColor: 'transparent', yAxisID: 'y' },
+        { data: [], label: 'Gait', borderColor: '#10b981', backgroundColor: 'transparent', yAxisID: 'y2' },
+    ] },
+    options: { ...chartBase,
+        plugins: { legend: { display: true, position: 'top', align: 'end',
+            labels: { boxWidth: 8, boxHeight: 2, font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#4b5563', padding: 8 } } },
+        scales: {
+            x: { display: false },
+            y: { ...chartBase.scales.y, min: 300, max: 700 },
+            y2: { position: 'right', min: 0, max: 1,
+                ticks: { font: { size: 9, family: "'JetBrains Mono', monospace" }, color: '#10b981', maxTicksLimit: 3 },
+                grid: { drawOnChartArea: false }, border: { display: false } },
+        },
+    },
 });
 
+// Accelerometer 3-axis
 const accelChart = new Chart($('accel-chart'), {
     type: 'line',
     data: { labels: [], datasets: [
-        { data: [], label: 'X', borderColor: '#dc2626', backgroundColor: 'transparent' },
-        { data: [], label: 'Y', borderColor: '#059669', backgroundColor: 'transparent' },
-        { data: [], label: 'Z', borderColor: '#2563eb', backgroundColor: 'transparent' },
+        { data: [], label: 'X', borderColor: '#ef4444', backgroundColor: 'transparent' },
+        { data: [], label: 'Y', borderColor: '#10b981', backgroundColor: 'transparent' },
+        { data: [], label: 'Z', borderColor: '#3b82f6', backgroundColor: 'transparent' },
     ] },
     options: { ...chartBase,
         plugins: { legend: { display: true, position: 'top', align: 'end',
@@ -139,7 +187,7 @@ async function connectBLE() {
 }
 
 function disconnectBLE() {
-    reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // prevent auto-reconnect on manual disconnect
+    reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
     if (bleDevice?.gatt.connected) bleDevice.gatt.disconnect();
     onDisconnected();
 }
@@ -147,38 +195,49 @@ function disconnectBLE() {
 function onDisconnected() {
     isConnected = false; bleCharacteristic = null; bleResetChar = null; bleStatusChar = null;
     stopSessionTimer();
-
-    // Auto-reconnect with exponential backoff (unless manually disconnected)
     if (bleDevice && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
-        const delay = 3000 * Math.pow(2, reconnectAttempts - 1); // 3s, 6s, 12s
+        const delay = 3000 * Math.pow(2, reconnectAttempts - 1);
         updateStatus(`Reconnecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-        setTimeout(() => {
-            if (!isConnected) connectBLE();
-        }, delay);
+        setTimeout(() => { if (!isConnected) connectBLE(); }, delay);
     } else {
         updateStatus('Offline');
         connectBtn.disabled = false; disconnectBtn.disabled = true;
     }
 }
 
-// BLE software reset — sends 0x01 to the reset characteristic
 async function resetDevice() {
     if (!bleResetChar) { console.warn('Reset characteristic not available'); return; }
     if (!confirm('Reset the device? It will disconnect and reboot.')) return;
     try {
-        reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // don't auto-reconnect during reset
+        reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
         await bleResetChar.writeValue(new Uint8Array([1]));
         updateStatus('Resetting');
-        // Device will reboot and disconnect — user must reconnect manually
-    } catch (err) {
-        console.error('Reset failed:', err);
-    }
+    } catch (err) { console.error('Reset failed:', err); }
 }
+
 function updateStatus(s) {
     statusText.textContent = s; statusDot.className = 'status-dot';
     if (s === 'Connected') statusDot.classList.add('connected');
     else if (s === 'Demo') statusDot.classList.add('demo');
+}
+
+// ─────────────── Trend Detection ───────────────
+function computeTrend(history) {
+    if (history.length < 10) return 'stable';
+    const recent = history.slice(-10);
+    const first5avg = recent.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
+    const last5avg = recent.slice(5).reduce((a, b) => a + b, 0) / 5;
+    const slope = last5avg - first5avg;
+    if (slope > 2) return 'up';
+    if (slope < -2) return 'down';
+    return 'stable';
+}
+
+function updateTrendArrow(elementId, trend) {
+    const el = $(elementId);
+    if (!el) return;
+    el.className = 'trend-arrow ' + trend;
 }
 
 // ─────────────── Data ───────────────
@@ -189,30 +248,92 @@ function onSensorData(e) {
 function processData(data) {
     const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
     lastUpdate.textContent = timeStr;
-
-    // Log data for CSV export
     dataLog.push({ ...data, _time: timeStr });
 
-    if (data.hr > 0) { hrValue.textContent = data.hr; cardHR.classList.remove('sensor-error'); pushToHistory(hrHistory, data.hr); latestData.hr = data.hr; }
-    else if (data.hr === -1) { hrValue.textContent = '--'; cardHR.classList.add('sensor-error'); }
+    // HR
+    if (data.hr > 0) {
+        hrValue.textContent = data.hr; cardHR.classList.remove('sensor-error');
+        pushToHistory(hrHistory, data.hr); latestData.hr = data.hr;
+        updateSessionStat('hr', data.hr);
+    } else if (data.hr === -1) { hrValue.textContent = '--'; cardHR.classList.add('sensor-error'); }
 
-    if (data.sp > 0) { spo2Value.textContent = data.sp; cardSpo2.classList.remove('sensor-error'); updateSpO2Ring(data.sp); latestData.sp = data.sp; }
-    else if (data.sp === -1) { spo2Value.textContent = '--'; cardSpo2.classList.add('sensor-error'); }
+    // SpO2
+    if (data.sp > 0) {
+        spo2Value.textContent = data.sp; cardSpo2.classList.remove('sensor-error');
+        updateSpO2Ring(data.sp); pushToHistory(spo2History, data.sp); latestData.sp = data.sp;
+        updateSessionStat('sp', data.sp);
+    } else if (data.sp === -1) { spo2Value.textContent = '--'; cardSpo2.classList.add('sensor-error'); }
 
-    if (data.gsr !== undefined) { gsrValueEl.textContent = data.gsr; pushToHistory(gsrHistory, data.gsr); latestData.gsr = data.gsr; }
-    if (data.gait !== undefined) { gaitValue.textContent = parseFloat(data.gait).toFixed(2); latestData.gait = data.gait; }
-    if (data.ax !== undefined) { pushToHistory(accelXHistory, data.ax); pushToHistory(accelYHistory, data.ay); pushToHistory(accelZHistory, data.az); }
+    // GSR
+    if (data.gsr !== undefined) {
+        gsrValueEl.textContent = data.gsr; pushToHistory(gsrHistory, data.gsr); latestData.gsr = data.gsr;
+        updateSessionStat('gsr', data.gsr);
+    }
 
+    // Gait
+    if (data.gait !== undefined) {
+        gaitValue.textContent = parseFloat(data.gait).toFixed(2); pushToHistory(gaitHistory, data.gait); latestData.gait = data.gait;
+        updateSessionStat('gait', data.gait);
+    }
+
+    // Accelerometer
+    if (data.ax !== undefined) {
+        pushToHistory(accelXHistory, data.ax); pushToHistory(accelYHistory, data.ay); pushToHistory(accelZHistory, data.az);
+    }
+
+    // IBI + HRV
     if (data.ibi > 0) {
         ibiBuffer.push(data.ibi); if (ibiBuffer.length > IBI_BUFFER_SIZE) ibiBuffer.shift();
         hrvIbi.textContent = data.ibi; latestData.ibi = data.ibi; computeHRV();
     }
 
+    // Respiratory Rate
+    const rrEl = $('rr-value');
+    if (data.rr !== undefined && data.rr > 0) {
+        if (rrEl) rrEl.textContent = data.rr;
+        pushToHistory(rrHistory, data.rr); latestData.rr = data.rr;
+        updateSessionStat('rr', data.rr);
+    } else if (rrEl) { rrEl.textContent = '--'; }
+
+    // Temperature
+    const tmpEl = $('tmp-value');
+    if (data.tmp !== undefined && data.tmp > 0) { if (tmpEl) tmpEl.textContent = parseFloat(data.tmp).toFixed(1); latestData.tmp = data.tmp; }
+    else if (tmpEl) { tmpEl.textContent = '--'; }
+
+    // Sleep
+    const slpEl = $('slp-value'), slpState = $('slp-state');
+    if (data.slp !== undefined && data.slp >= 0) {
+        if (slpEl) slpEl.textContent = data.slp;
+        latestData.slp = data.slp;
+        if (slpState) { slpState.textContent = data.slps ? 'Sleeping' : 'Awake'; slpState.className = 'sleep-state ' + (data.slps ? 'sleeping' : 'awake'); }
+    }
+
+    // NRI
+    const nriEl = $('nri-value'), nriBar = $('nri-bar');
+    if (data.nri !== undefined) {
+        if (nriEl) nriEl.textContent = data.nri;
+        pushToHistory(nriHistory, data.nri); latestData.nri = data.nri;
+        updateSessionStat('nri', data.nri);
+        if (nriBar) { nriBar.style.width = `${data.nri}%`; nriBar.className = 'nri-bar ' + (data.nri < 30 ? 'low' : data.nri < 60 ? 'moderate' : 'high'); }
+    }
+
+    // Humidity, Light, Pressure
+    const humEl = $('hum-value'), luxEl = $('lux-value'), prsEl = $('prs-value');
+    if (data.hum !== undefined && data.hum >= 0) { if (humEl) humEl.textContent = parseFloat(data.hum).toFixed(1); latestData.hum = data.hum; }
+    else if (humEl) { humEl.textContent = '--'; }
+    if (data.lux !== undefined && data.lux >= 0) { if (luxEl) luxEl.textContent = data.lux; latestData.lux = data.lux; }
+    else if (luxEl) { luxEl.textContent = '--'; }
+    if (data.prs !== undefined && data.prs > 0) { if (prsEl) prsEl.textContent = parseFloat(data.prs).toFixed(1); latestData.prs = data.prs; }
+    else if (prsEl) { prsEl.textContent = '--'; }
+
+    // Battery
     if (data.bt >= 0) batteryLevel.textContent = `${data.bt}%`;
     else batteryLevel.textContent = '--%';
 
     pushToHistory(timeLabels, timeStr);
     updateCharts();
+    updateTrends();
+    updateStatsBar();
     addLogEntry(timeStr, JSON.stringify(data));
 }
 
@@ -221,17 +342,17 @@ function pushToHistory(a, v) { a.push(v); if (a.length > HISTORY_SIZE) a.shift()
 function updateSpO2Ring(value) {
     const pct = Math.max(0, Math.min(1, (value - 90) / 10));
     spo2RingFill.style.strokeDashoffset = 326.73 * (1 - pct);
-    const color = value >= 95 ? '#0891b2' : value >= 90 ? '#d97706' : '#dc2626';
+    const color = value >= 95 ? '#06b6d4' : value >= 90 ? '#f59e0b' : '#ef4444';
     spo2Value.style.color = color; spo2RingFill.style.stroke = color;
 }
 
 function computeHRV() {
     const n = ibiBuffer.length;
     if (n < 10) { hrvStatus.textContent = `Collecting ${n}/10`; hrvStatus.className = 'hrv-status'; return; }
-    const mean = ibiBuffer.reduce((a,b) => a+b, 0) / n;
-    const sdnn = Math.sqrt(ibiBuffer.reduce((s,v) => s + (v-mean)**2, 0) / (n-1));
-    let sq = 0; for (let i = 1; i < n; i++) { const d = ibiBuffer[i]-ibiBuffer[i-1]; sq += d*d; }
-    const rmssd = Math.sqrt(sq / (n-1));
+    const mean = ibiBuffer.reduce((a, b) => a + b, 0) / n;
+    const sdnn = Math.sqrt(ibiBuffer.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1));
+    let sq = 0; for (let i = 1; i < n; i++) { const d = ibiBuffer[i] - ibiBuffer[i - 1]; sq += d * d; }
+    const rmssd = Math.sqrt(sq / (n - 1));
     hrvSdnn.textContent = Math.round(sdnn); hrvRmssd.textContent = Math.round(rmssd);
     latestData.sdnn = Math.round(sdnn); latestData.rmssd = Math.round(rmssd);
     if (sdnn < 50) { hrvStatus.textContent = 'Below threshold'; hrvStatus.className = 'hrv-status low'; }
@@ -239,13 +360,40 @@ function computeHRV() {
 }
 
 function updateCharts() {
-    hrChart.data.labels = [...timeLabels]; hrChart.data.datasets[0].data = [...hrHistory]; hrChart.update('none');
-    gsrChart.data.labels = [...timeLabels]; gsrChart.data.datasets[0].data = [...gsrHistory]; gsrChart.update('none');
+    // HR + SpO2 dual-axis
+    hrChart.data.labels = [...timeLabels];
+    hrChart.data.datasets[0].data = [...hrHistory];
+    hrChart.data.datasets[1].data = [...spo2History];
+    hrChart.update('none');
+
+    // GSR + Gait dual-axis
+    gsrChart.data.labels = [...timeLabels];
+    gsrChart.data.datasets[0].data = [...gsrHistory];
+    gsrChart.data.datasets[1].data = [...gaitHistory];
+    gsrChart.update('none');
+
+    // Accelerometer
     accelChart.data.labels = [...timeLabels];
     accelChart.data.datasets[0].data = [...accelXHistory];
     accelChart.data.datasets[1].data = [...accelYHistory];
     accelChart.data.datasets[2].data = [...accelZHistory];
     accelChart.update('none');
+}
+
+function updateTrends() {
+    updateTrendArrow('hr-trend', computeTrend(hrHistory));
+    updateTrendArrow('spo2-trend', computeTrend(spo2History));
+    updateTrendArrow('rr-trend', computeTrend(rrHistory));
+    updateTrendArrow('nri-trend', computeTrend(nriHistory));
+}
+
+function updateStatsBar() {
+    const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    set('stat-hr-min', getStatMin('hr')); set('stat-hr-avg', getStatAvg('hr')); set('stat-hr-max', getStatMax('hr'));
+    set('stat-sp-min', getStatMin('sp')); set('stat-sp-avg', getStatAvg('sp')); set('stat-sp-max', getStatMax('sp'));
+    set('stat-gsr-avg', getStatAvg('gsr'));
+    set('stat-gait-avg', sessionStats.gait.count > 0 ? (sessionStats.gait.sum / sessionStats.gait.count).toFixed(2) : '--');
+    set('stat-nri-avg', getStatAvg('nri')); set('stat-nri-max', getStatMax('nri'));
 }
 
 function addLogEntry(time, json) {
@@ -258,93 +406,28 @@ function addLogEntry(time, json) {
 }
 
 // ─────────────── Clinical Decision Support ───────────────
-// Rule-based. Each rule uses a short text label instead of emoji.
-
 const INSIGHT_RULES = [
-    {
-        id: 'hr-elevated', check: d => d.hr > 100, priority: 'high',
-        icon: 'icon-hr', badge: 'HR',
-        title: 'Elevated Heart Rate',
-        text: d => `Heart rate ${d.hr} BPM exceeds 100 BPM threshold. Recommend seated rest for 2 minutes and re-measurement. Sustained tachycardia may indicate autonomic dysregulation — a documented early marker in neurodegenerative conditions.`,
-    },
-    {
-        id: 'hr-low', check: d => d.hr > 0 && d.hr < 55, priority: 'medium',
-        icon: 'icon-hr', badge: 'HR',
-        title: 'Bradycardia Detected',
-        text: d => `Heart rate ${d.hr} BPM is below 55 BPM. While normal in conditioned athletes, in elderly patients this may indicate parasympathetic dominance or beta-blocker effects. Verify medication history.`,
-    },
-    {
-        id: 'hr-normal', check: d => d.hr >= 60 && d.hr <= 80, priority: 'info',
-        icon: 'icon-hr', badge: 'HR',
-        title: 'Heart Rate Within Normal Range',
-        text: d => `Heart rate ${d.hr} BPM — within optimal resting range. Stable cardiac rhythm supports adequate cerebral perfusion. Continue baseline monitoring.`,
-    },
-    {
-        id: 'spo2-low', check: d => d.sp > 0 && d.sp < 94, priority: 'high',
-        icon: 'icon-spo2', badge: 'O\u2082',
-        title: 'Hypoxemia Detected',
-        text: d => `SpO2 ${d.sp}% is below 94% threshold. Verify sensor placement and perfusion. If sustained, evaluate for respiratory compromise. Nocturnal desaturation is an established risk factor for cognitive decline — consider polysomnography referral.`,
-    },
-    {
-        id: 'spo2-borderline', check: d => d.sp >= 94 && d.sp <= 95, priority: 'medium',
-        icon: 'icon-spo2', badge: 'O\u2082',
-        title: 'Borderline Oxygen Saturation',
-        text: d => `SpO2 ${d.sp}% — at the lower boundary of normal range. Monitor for downward trend. Sleep-disordered breathing is associated with accelerated cognitive decline per current evidence.`,
-    },
-    {
-        id: 'hrv-very-low', check: d => d.sdnn > 0 && d.sdnn < 30, priority: 'high',
-        icon: 'icon-hrv', badge: 'HRV',
-        title: 'Severely Reduced HRV',
-        text: d => `SDNN ${d.sdnn} ms is significantly below the 50 ms clinical threshold. This suggests reduced autonomic nervous system flexibility. In AD research, low HRV correlates with degeneration of brainstem nuclei controlling cardiac rhythm. Recommend 5-minute paced breathing protocol (4s inhale, 6s exhale).`,
-    },
-    {
-        id: 'hrv-moderate', check: d => d.sdnn >= 30 && d.sdnn < 50, priority: 'medium',
-        icon: 'icon-hrv', badge: 'HRV',
-        title: 'Below-Normal HRV',
-        text: d => `SDNN ${d.sdnn} ms — below the 50 ms threshold for healthy autonomic function. Recommend guided vagal stimulation protocol: inhale 4 seconds, exhale 6 seconds, repeat for 3 minutes. This technique can acutely improve HRV and may provide neuroprotective benefit.`,
-    },
-    {
-        id: 'hrv-good', check: d => d.sdnn >= 50, priority: 'info',
-        icon: 'icon-hrv', badge: 'HRV',
-        title: 'HRV Within Normal Range',
-        text: d => `SDNN ${d.sdnn} ms indicates adequate autonomic nervous system function and healthy vagal tone. Continue current monitoring protocol.`,
-    },
-    {
-        id: 'gsr-spike', check: d => d.gsr > 600, priority: 'medium',
-        icon: 'icon-gsr', badge: 'EDA',
-        title: 'Elevated Electrodermal Activity',
-        text: d => `GSR ${d.gsr} — elevated sympathetic arousal detected. In AD research, preserved EDA reactivity indicates intact autonomic pathways. Current response is consistent with acute stress. Assess patient comfort and environmental stimuli.`,
-    },
-    {
-        id: 'gsr-flat', check: d => d.gsr > 0 && d.gsr < 200, priority: 'medium',
-        icon: 'icon-gsr', badge: 'EDA',
-        title: 'Reduced Electrodermal Activity',
-        text: d => `GSR ${d.gsr} — very low skin conductance. Blunted EDA may reflect reduced sympathetic responsiveness, potentially indicating frontal cortex or insula involvement. Verify electrode contact and skin preparation before drawing clinical conclusions.`,
-    },
-    {
-        id: 'gait-active', check: d => d.gait > 0.2, priority: 'info',
-        icon: 'icon-gait', badge: 'GAIT',
-        title: 'Ambulatory Activity Detected',
-        text: d => `Activity score ${d.gait.toFixed(2)} — patient is ambulating. Capture window for gait metrics is active. Monitor for asymmetry, reduced cadence, or increased stride variability — validated digital biomarkers for MCI (Soltani et al., Front Neurol 2024).`,
-    },
-    {
-        id: 'gait-sedentary', check: d => d.gait >= 0 && d.gait < 0.05 && hrHistory.length > 30, priority: 'low',
-        icon: 'icon-gait', badge: 'GAIT',
-        title: 'Extended Sedentary Period',
-        text: () => `Patient has been stationary for an extended period. Recommend initiating a standardized 2-minute walk test to capture gait biomarkers. Protocol: walk 10 meters, turn, return. Regular ambulation promotes cerebral perfusion.`,
-    },
-    {
-        id: 'multi-concern', check: d => d.hr > 90 && d.sdnn > 0 && d.sdnn < 40 && d.gsr > 500, priority: 'high',
-        icon: 'icon-multi', badge: 'MBM',
-        title: 'Multimodal Biomarker Alert',
-        text: d => `Convergent pattern detected: elevated HR (${d.hr}), reduced HRV (SDNN ${d.sdnn}), elevated EDA (${d.gsr}). This multimodal signature indicates acute autonomic stress. Recommend: cessation of current activity, quiet environment, 5-minute paced breathing, then reassess all parameters.`,
-    },
-    {
-        id: 'multi-positive', check: d => d.hr >= 60 && d.hr <= 75 && d.sdnn >= 50 && d.sp >= 97, priority: 'info',
-        icon: 'icon-multi', badge: 'MBM',
-        title: 'All Parameters Within Normal Limits',
-        text: d => `Biomarker summary: HR ${d.hr}, SpO2 ${d.sp}%, SDNN ${d.sdnn} ms. All monitored parameters are within reference ranges. Autonomic and cardiovascular function appears intact. This baseline is suitable for longitudinal comparison in the AD prediction pipeline.`,
-    },
+    { id: 'hr-elevated', check: d => d.hr > 100, priority: 'high', icon: 'icon-hr', badge: 'HR', title: 'Elevated Heart Rate', text: d => `Heart rate ${d.hr} BPM exceeds 100 BPM threshold. Sustained tachycardia may indicate autonomic dysregulation — a documented early marker in neurodegenerative conditions.` },
+    { id: 'hr-low', check: d => d.hr > 0 && d.hr < 55, priority: 'medium', icon: 'icon-hr', badge: 'HR', title: 'Bradycardia Detected', text: d => `Heart rate ${d.hr} BPM is below 55 BPM. While normal in conditioned athletes, in elderly patients this may indicate parasympathetic dominance.` },
+    { id: 'hr-normal', check: d => d.hr >= 60 && d.hr <= 80, priority: 'info', icon: 'icon-hr', badge: 'HR', title: 'Heart Rate Within Normal Range', text: d => `Heart rate ${d.hr} BPM — within optimal resting range. Stable cardiac rhythm supports adequate cerebral perfusion.` },
+    { id: 'spo2-low', check: d => d.sp > 0 && d.sp < 94, priority: 'high', icon: 'icon-spo2', badge: 'O\u2082', title: 'Hypoxemia Detected', text: d => `SpO2 ${d.sp}% is below 94%. Nocturnal desaturation is an established risk factor for cognitive decline.` },
+    { id: 'spo2-borderline', check: d => d.sp >= 94 && d.sp <= 95, priority: 'medium', icon: 'icon-spo2', badge: 'O\u2082', title: 'Borderline Oxygen Saturation', text: d => `SpO2 ${d.sp}% — at the lower boundary of normal. Sleep-disordered breathing is associated with accelerated cognitive decline.` },
+    { id: 'hrv-very-low', check: d => d.sdnn > 0 && d.sdnn < 30, priority: 'high', icon: 'icon-hrv', badge: 'HRV', title: 'Severely Reduced HRV', text: d => `SDNN ${d.sdnn} ms is significantly below the 50 ms clinical threshold. Low HRV correlates with brainstem nuclei degeneration.` },
+    { id: 'hrv-moderate', check: d => d.sdnn >= 30 && d.sdnn < 50, priority: 'medium', icon: 'icon-hrv', badge: 'HRV', title: 'Below-Normal HRV', text: d => `SDNN ${d.sdnn} ms — below 50 ms threshold. Recommend guided vagal stimulation: inhale 4s, exhale 6s, 3 minutes.` },
+    { id: 'hrv-good', check: d => d.sdnn >= 50, priority: 'info', icon: 'icon-hrv', badge: 'HRV', title: 'HRV Within Normal Range', text: d => `SDNN ${d.sdnn} ms indicates adequate autonomic function and healthy vagal tone.` },
+    { id: 'gsr-spike', check: d => d.gsr > 600, priority: 'medium', icon: 'icon-gsr', badge: 'EDA', title: 'Elevated Electrodermal Activity', text: d => `GSR ${d.gsr} — elevated sympathetic arousal. Preserved EDA reactivity indicates intact autonomic pathways.` },
+    { id: 'gsr-flat', check: d => d.gsr > 0 && d.gsr < 200, priority: 'medium', icon: 'icon-gsr', badge: 'EDA', title: 'Reduced Electrodermal Activity', text: d => `GSR ${d.gsr} — blunted EDA may reflect reduced sympathetic responsiveness, potentially indicating frontal cortex involvement.` },
+    { id: 'gait-active', check: d => d.gait > 0.2, priority: 'info', icon: 'icon-gait', badge: 'GAIT', title: 'Ambulatory Activity Detected', text: d => `Activity score ${d.gait.toFixed(2)} — patient is ambulating. Capture window for gait metrics is active.` },
+    { id: 'gait-sedentary', check: d => d.gait >= 0 && d.gait < 0.05 && hrHistory.length > 30, priority: 'low', icon: 'icon-gait', badge: 'GAIT', title: 'Extended Sedentary Period', text: () => `Patient has been stationary for an extended period. Recommend initiating a standardized 2-minute walk test.` },
+    { id: 'resp-low', check: d => d.rr > 0 && d.rr < 12, priority: 'medium', icon: 'icon-resp', badge: 'RESP', title: 'Low Respiratory Rate', text: d => `Respiratory rate ${d.rr} br/min — below normal (12-20). May indicate central respiratory depression.` },
+    { id: 'resp-high', check: d => d.rr > 25, priority: 'medium', icon: 'icon-resp', badge: 'RESP', title: 'Elevated Respiratory Rate', text: d => `Respiratory rate ${d.rr} br/min — tachypnea may indicate anxiety, pain, or cardiopulmonary compromise.` },
+    { id: 'temp-deviation', check: d => d.tmp > 0 && (d.tmp < 31.0 || d.tmp > 35.0), priority: 'medium', icon: 'icon-temp', badge: 'TEMP', title: 'Temperature Outside Expected Range', text: d => `Skin temperature ${d.tmp}\u00B0C — circadian rhythm disruption is associated with AD pathology.` },
+    { id: 'sleep-poor', check: d => d.slp >= 0 && d.slp < 50 && d.slps === 1, priority: 'medium', icon: 'icon-sleep', badge: 'SLEEP', title: 'Poor Sleep Quality', text: d => `Sleep score ${d.slp}/100 — sleep fragmentation correlates with amyloid-beta accumulation.` },
+    { id: 'nri-elevated', check: d => d.nri > 60, priority: 'high', icon: 'icon-nri', badge: 'NRI', title: 'Elevated Neuro-Risk Index', text: d => `Composite risk ${d.nri}/100 — multiple biomarker streams indicate elevated risk. Research prototype, not diagnostic.` },
+    { id: 'nri-moderate', check: d => d.nri >= 30 && d.nri <= 60, priority: 'low', icon: 'icon-nri', badge: 'NRI', title: 'Moderate Neuro-Risk Index', text: d => `Composite risk ${d.nri}/100 — some streams outside optimal ranges. Continue monitoring.` },
+    { id: 'multi-concern', check: d => d.hr > 90 && d.sdnn > 0 && d.sdnn < 40 && d.gsr > 500, priority: 'high', icon: 'icon-multi', badge: 'MBM', title: 'Multimodal Biomarker Alert', text: d => `Convergent pattern: elevated HR (${d.hr}), reduced HRV (SDNN ${d.sdnn}), elevated EDA (${d.gsr}). Acute autonomic stress detected.` },
+    { id: 'multi-positive', check: d => d.hr >= 60 && d.hr <= 75 && d.sdnn >= 50 && d.sp >= 97, priority: 'info', icon: 'icon-multi', badge: 'MBM', title: 'All Parameters Within Normal Limits', text: d => `HR ${d.hr}, SpO2 ${d.sp}%, SDNN ${d.sdnn} ms — all within reference ranges. Suitable for longitudinal baseline.` },
+    { id: 'multi-sleep-hrv', check: d => d.nri > 30 && d.sdnn > 0 && d.sdnn < 50 && d.slp >= 0 && d.slp < 50, priority: 'high', icon: 'icon-multi', badge: 'MBM', title: 'Autonomic-Sleep Concern', text: d => `Reduced HRV (SDNN ${d.sdnn}) + poor sleep (${d.slp}) + NRI (${d.nri}). Combined autonomic dysfunction and sleep disruption is a strong prodromal indicator.` },
 ];
 
 let currentInsightIds = new Set();
@@ -368,10 +451,7 @@ function generateInsights() {
         item.innerHTML = `
             <div class="insight-icon ${rule.icon}">${rule.badge}</div>
             <div class="insight-body">
-                <div class="insight-title">
-                    ${rule.title}
-                    <span class="insight-priority priority-${rule.priority}">${rule.priority}</span>
-                </div>
+                <div class="insight-title">${rule.title} <span class="insight-badge ${rule.priority}">${rule.priority.toUpperCase()}</span></div>
                 <div class="insight-text">${text}</div>
             </div>`;
         insightsContainer.appendChild(item);
@@ -395,23 +475,20 @@ function startSessionTimer() {
         timerEl.textContent = `${mm}:${ss}`;
     }, 1000);
 }
-
-function stopSessionTimer() {
-    if (sessionTimerInterval) { clearInterval(sessionTimerInterval); sessionTimerInterval = null; }
-}
+function stopSessionTimer() { if (sessionTimerInterval) { clearInterval(sessionTimerInterval); sessionTimerInterval = null; } }
 
 // ─────────────── CSV Export ───────────────
 function exportCSV() {
-    if (dataLog.length === 0) { alert('No data to export. Connect a device or run demo mode first.'); return; }
-    const headers = 'timestamp,hr,spo2,gsr,gait,ibi,ax,ay,az,battery\n';
+    if (dataLog.length === 0) { alert('No data to export.'); return; }
+    const headers = 'timestamp,hr,spo2,gsr,gait,ibi,rr,tmp,hum,lux,prs,slp,slps,nri,battery\n';
     const rows = dataLog.map(d =>
-        `${d.ts || ''},${d.hr || ''},${d.sp || ''},${d.gsr || ''},${d.gait || ''},${d.ibi || ''},${d.ax || ''},${d.ay || ''},${d.az || ''},${d.bt || ''}`
+        `${d.ts || ''},${d.hr || ''},${d.sp || ''},${d.gsr || ''},${d.gait || ''},${d.ibi || ''},${d.rr || ''},${d.tmp || ''},${d.hum || ''},${d.lux || ''},${d.prs || ''},${d.slp || ''},${d.slps || ''},${d.nri || ''},${d.bt || ''}`
     ).join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `neurafy_session_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.csv`;
+    a.download = `neurafy_session_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 }
@@ -421,19 +498,35 @@ function startDemo() {
     let t = 0;
     demoInterval = setInterval(() => {
         t++;
-        const hr = Math.round(72 + Math.sin(t*0.1)*5 + (Math.random()-0.5)*4);
-        const ibi = Math.round(60000/hr + (Math.random()-0.5)*40);
-        const sp = Math.round(97 + Math.sin(t*0.05) + (Math.random()-0.5));
-        const gsr = Math.round(480 + Math.sin(t*0.15)*30 + ((t%30===0)?80:0) + (Math.random()-0.5)*20);
-        const moving = (t%20 < 5);
-        const ax = moving ? Math.sin(t*2)*0.5 : (Math.random()-0.5)*0.05;
-        const ay = moving ? Math.cos(t*2)*0.3 : (Math.random()-0.5)*0.05;
-        const az = 1.0 + (moving ? Math.sin(t*4)*0.2 : (Math.random()-0.5)*0.02);
-        const gait = moving ? 0.3+Math.random()*0.3 : 0.01+Math.random()*0.02;
+        const hr = Math.round(72 + Math.sin(t * 0.1) * 5 + (Math.random() - 0.5) * 4);
+        const ibi = Math.round(60000 / hr + (Math.random() - 0.5) * 40);
+        const sp = Math.round(97 + Math.sin(t * 0.05) + (Math.random() - 0.5));
+        const gsr = Math.round(480 + Math.sin(t * 0.15) * 30 + ((t % 30 === 0) ? 80 : 0) + (Math.random() - 0.5) * 20);
+        const moving = (t % 20 < 5);
+        const ax = moving ? Math.sin(t * 2) * 0.5 : (Math.random() - 0.5) * 0.05;
+        const ay = moving ? Math.cos(t * 2) * 0.3 : (Math.random() - 0.5) * 0.05;
+        const az = 1.0 + (moving ? Math.sin(t * 4) * 0.2 : (Math.random() - 0.5) * 0.02);
+        const gait = moving ? 0.3 + Math.random() * 0.3 : 0.01 + Math.random() * 0.02;
+        const rr = Math.round(16 + Math.sin(t * 0.08) * 2 + (Math.random() - 0.5));
+        const tmp = parseFloat((32.5 + Math.sin(t * 0.02) * 0.8 + (Math.random() - 0.5) * 0.2).toFixed(1));
+        const slp = 0, slps = 0;
+        const hum = parseFloat((48 + Math.sin(t * 0.03) * 6 + (Math.random() - 0.5) * 2).toFixed(1));
+        const lux = (t % 20 < 10) ? Math.round(350 + (Math.random() - 0.5) * 40) : Math.round(50 + (Math.random() - 0.5) * 15);
+        const prs = parseFloat((101.3 + (Math.random() - 0.5) * 0.2).toFixed(1));
+        let nri = 0;
+        const demoSdnn = latestData.sdnn > 0 ? latestData.sdnn : 40;
+        if (demoSdnn < 50) nri += 25 * (1 - demoSdnn / 50);
+        if (sp < 96) nri += 20 * (1 - sp / 100);
+        if (gait < 0.1) nri += 15;
+        if (gsr > 600) nri += 15 * Math.min(1, (gsr - 600) / 200);
+        if (rr < 12) nri += 10;
+        nri = Math.round(Math.min(100, Math.max(0, nri)));
+
         processData({ hr, sp, gsr, ibi,
             gait: parseFloat(gait.toFixed(2)),
             ax: parseFloat(ax.toFixed(2)), ay: parseFloat(ay.toFixed(2)), az: parseFloat(az.toFixed(2)),
-            bt: Math.max(0, 85-Math.floor(t/60)), ts: t*1000 });
+            rr, tmp, slp, slps, nri, hum, lux, prs,
+            bt: Math.max(0, 85 - Math.floor(t / 60)), ts: t * 1000 });
     }, 1000);
     updateStatus('Demo');
     startInsights();
@@ -443,6 +536,15 @@ function stopDemo() {
     if (demoInterval) { clearInterval(demoInterval); demoInterval = null; }
     stopInsights();
     if (!isConnected) updateStatus('Offline');
+}
+
+// ─────────────── Collapsible Log ───────────────
+const logToggle = $('log-toggle');
+if (logToggle) {
+    logToggle.addEventListener('click', () => {
+        logContainer.classList.toggle('collapsed');
+        logToggle.classList.toggle('expanded');
+    });
 }
 
 // ─────────────── Events ───────────────
