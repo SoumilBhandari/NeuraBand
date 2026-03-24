@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useData } from '../context/DataContext';
 import { dark, light } from '../theme/colors';
 
@@ -52,7 +53,7 @@ export default function TrendsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <Text style={[styles.title, { color: colors.text1 }]}>Trends</Text>
         <Text style={[styles.subtitle, { color: colors.text2 }]}>Last 60 seconds of session data</Text>
@@ -65,7 +66,7 @@ export default function TrendsScreen() {
         {renderMiniHistory('Respiratory Rate', histories.current.rr, 'br/m', colors.cyan)}
         {renderMiniHistory('Neuro-Risk Index', histories.current.nri, '/100', colors.violet)}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

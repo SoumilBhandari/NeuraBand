@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useData } from '../context/DataContext';
 import { dark, light } from '../theme/colors';
 
@@ -20,7 +21,7 @@ export default function InsightsScreen() {
   const { latest } = useData();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <Text style={[styles.title, { color: colors.text1 }]}>Health Tips</Text>
         <Text style={[styles.subtitle, { color: colors.text2 }]}>Evidence-based guidance for brain health</Text>
@@ -39,7 +40,7 @@ export default function InsightsScreen() {
           These tips are for general wellness — not medical advice.
         </Text>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

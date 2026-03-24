@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useData } from '../context/DataContext';
 import { dark, light } from '../theme/colors';
 import { getVitalStatus, getGaitStatus, getSleepStatus, getNriStatus } from '../utils/thresholds';
@@ -40,7 +41,7 @@ export default function HomeScreen() {
   const tmpStatus = getVitalStatus(latest.tmp, 'tmp');
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top']}>
       <ConnectionBar connected={connected} demoActive={demoActive} battery={latest.bt} colors={colors} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <VitalCard icon="❤️" label="Heart Rate" value={latest.hr > 0 ? latest.hr : undefined}
@@ -69,7 +70,7 @@ export default function HomeScreen() {
           Research prototype — not for clinical diagnosis
         </Text>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

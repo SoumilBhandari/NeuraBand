@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ScrollView, View, Text, StyleSheet, Switch, TouchableOpacity, Alert, useColorScheme, Share } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useData } from '../context/DataContext';
 import { generateDemoData, resetDemo } from '../services/DemoService';
 import { dark, light } from '../theme/colors';
@@ -37,7 +38,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <Text style={[styles.title, { color: colors.text1 }]}>Settings</Text>
       </View>
@@ -87,7 +88,7 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
