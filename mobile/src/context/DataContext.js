@@ -16,6 +16,7 @@ export function DataProvider({ children }) {
   const [trends, setTrends] = useState({ hr: 'stable', sp: 'stable', rr: 'stable', nri: 'stable' });
   const [connected, setConnected] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
 
   const histories = useRef({
     hr: [], sp: [], rr: [], nri: [], gsr: [], gait: [],
@@ -58,6 +59,9 @@ export function DataProvider({ children }) {
       nri: computeTrend(histories.current.nri),
     });
 
+    // Sync timestamp
+    setLastSyncTime(Date.now());
+
     // Log for export
     dataLog.current.push({ ...data, _time: Date.now() });
     if (dataLog.current.length > 10000) dataLog.current.shift();
@@ -65,7 +69,7 @@ export function DataProvider({ children }) {
 
   return (
     <DataContext.Provider value={{
-      latest, hrv, trends, connected, demoActive, histories,
+      latest, hrv, trends, connected, demoActive, histories, lastSyncTime,
       dataLog, processData, setConnected, setDemoActive,
     }}>
       {children}
