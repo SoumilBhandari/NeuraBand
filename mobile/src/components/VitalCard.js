@@ -1,44 +1,53 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { trendLabel } from '../utils/trends';
 
-export default function VitalCard({ icon, label, value, unit, trend, metricKey, statusColor, statusLabel, colors }) {
-  const t = trendLabel(trend || 'stable', metricKey);
+// Minimal sparkline — thin bars showing recent trend
+function Sparkline({ data, color, height = 24 }) {
+  if (!data || data.length < 3) return null;
+  const slice = data.slice(-20);
+  const min = Math.min(...slice);
+  const range = (Math.max(...slice) - min) || 1;
+  return (
+    <View style={[styles.sparkRow, { height }]}>
+      {slice.map((v, i) => {
+        const pct = ((v - min) / range) * 100;
+        return <View key={i} style={{ flex: 1, height: `${Math.max(6, pct)}%`, backgroundColor: color, opacity: 0.15 + (i / slice.length) * 0.6, borderRadius: 1 }} />;
+      })}
+    </View>
+  );
+}
+
+export default function VitalCard({ label, value, unit, statusColor, statusLabel, sparkData, colors }) {
+  const displayValue = value !== undefined && value >= 0 ? value : '--';
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-      <View style={styles.header}>
-        <Text style={styles.icon}>{icon}</Text>
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={styles.top}>
         <Text style={[styles.label, { color: colors.text2 }]}>{label}</Text>
+        {statusLabel && (
+          <Text style={[styles.status, { color: statusColor || colors.text3 }]}>{statusLabel}</Text>
+        )}
       </View>
-      <View style={styles.reading}>
-        <Text style={[styles.value, { color: statusColor || colors.text1 }]}>
-          {value !== undefined && value >= 0 ? value : '--'}
-        </Text>
-        <Text style={[styles.unit, { color: colors.text2 }]}>{unit}</Text>
-        <Text style={[styles.arrow, { color: t.color }]}>{t.arrow} {t.text}</Text>
+      <View style={styles.valueRow}>
+        <Text style={[styles.value, { color: colors.text1 }]}>{displayValue}</Text>
+        <Text style={[styles.unit, { color: colors.text3 }]}>{unit}</Text>
       </View>
-      <View style={styles.footer}>
-        <View style={[styles.statusDot, { backgroundColor: statusColor || colors.text3 }]} />
-        <Text style={[styles.statusLabel, { color: statusColor || colors.text3 }]}>{statusLabel || '--'}</Text>
-      </View>
+      <Sparkline data={sparkData} color={statusColor || colors.tint} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: 1, borderRadius: 14, padding: 16,
-    marginBottom: 10,
+    borderRadius: 12, padding: 16, marginBottom: 8,
   },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  icon: { fontSize: 20 },
-  label: { fontSize: 16, fontWeight: '600', letterSpacing: 0.3 },
-  reading: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginVertical: 4 },
-  value: { fontSize: 48, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  unit: { fontSize: 18, marginLeft: 3 },
-  arrow: { fontSize: 15, fontWeight: '600', marginLeft: 'auto' },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusLabel: { fontSize: 16, fontWeight: '500' },
+  top: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2,
+  },
+  label: { fontSize: 13, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
+  status: { fontSize: 13, fontWeight: '500' },
+  valueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  value: { fontSize: 34, fontWeight: '700', fontVariant: ['tabular-nums'], letterSpacing: -1 },
+  unit: { fontSize: 16, fontWeight: '400', marginBottom: 2 },
+  sparkRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 1, marginTop: 8 },
 });

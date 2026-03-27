@@ -8,17 +8,17 @@ const SLIDES = [
   {
     title: 'Welcome to NeuraFy',
     body: "We're here to help you track your brain health — easily and gently. No complicated numbers, just simple updates about how you're doing.",
-    accent: '🧠',
+    accent: null,
   },
   {
     title: 'What You\'ll See',
-    body: 'Five simple health readings, each shown in plain language.\n\nGreen means great.\nAmber means worth checking.\n\nThat\'s it. No confusing charts or medical jargon.',
-    accent: '💚',
+    body: 'Five simple health readings, each shown in plain language.\n\nGreen means great.\nAmber means worth checking.\n\nNo confusing charts or medical jargon.',
+    accent: null,
   },
   {
     title: 'Just Wear Your Band',
     body: "Put it on and forget about it. We'll track everything automatically. Check in whenever you like — your health story builds over time.",
-    accent: '⌚',
+    accent: null,
   },
 ];
 
@@ -32,7 +32,7 @@ export default function OnboardingScreen({ onComplete }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.content}>
-        <Text style={styles.accent}>{SLIDES[page].accent}</Text>
+        {SLIDES[page].accent && <Text style={styles.accent}>{SLIDES[page].accent}</Text>}
         <Text style={[styles.title, { color: colors.text1 }]}>{SLIDES[page].title}</Text>
         <Text style={[styles.body, { color: colors.text2 }]}>{SLIDES[page].body}</Text>
       </View>

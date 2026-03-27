@@ -1,12 +1,13 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ScrollView,
   KeyboardAvoidingView, Platform, useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useData } from '../context/DataContext';
 import { getVitalStatus, getGaitStatus, getNriStatus } from '../utils/thresholds';
 import { dark, light } from '../theme/colors';
+import TypingDots from '../components/TypingDots';
 
 // ─── Knowledge Base ───
 // Each entry: { keywords: string[], response: string (with {placeholders}) }
@@ -14,7 +15,7 @@ import { dark, light } from '../theme/colors';
 const KNOWLEDGE = [
   // Status queries
   { keywords: ['how am i', 'am i okay', 'am i ok', 'is everything normal', 'how am i doing'],
-    response: "Based on your latest readings:\n\n❤️ Heart rate: {hr} BPM — {hr_status}\n🫁 Blood oxygen: {sp}% — {sp_status}\n🧠 Brain health: {nri_score}/100 — {nri_status}\n🏃 Movement: {gait_status}\n🧘 Heart calmness: {hrv_text}\n\nOverall, {summary}." },
+    response: "Based on your latest readings:\n\nHeart rate: {hr} BPM — {hr_status}\nBlood oxygen: {sp}% — {sp_status}\nBrain health: {nri_score}/100 — {nri_status}\nMovement: {gait_status}\nHeart calmness: {hrv_text}\n\nOverall, {summary}." },
 
   // Heart rate
   { keywords: ['heart rate', 'heart beat', 'pulse', 'bpm', 'heartbeat'],
@@ -61,7 +62,7 @@ const KNOWLEDGE = [
     response: "NeuraFy is a brain health monitoring band. It continuously tracks your heart rhythm, blood oxygen, movement, stress, and other biomarkers that research has linked to early signs of cognitive change.\n\nAll you need to do is wear it — we handle the rest! Your readings update every second and are shown in simple, clear language." },
 
   { keywords: ['what should i do', 'help me', 'tips', 'advice', 'improve', 'suggestions'],
-    response: "Here are the best things you can do for your brain health right now:\n\n1. 🚶 Take a 10-minute walk\n2. 🫁 Do 5 deep breathing cycles (in 4s, hold 4s, out 6s)\n3. 💧 Drink a glass of water\n4. 😴 Aim for 7–8 hours of sleep tonight\n5. 🗣️ Have a conversation with someone you enjoy\n\nSmall daily habits make a big difference over time!" },
+    response: "Here are the best things you can do for your brain health right now:\n\n1. Take a 10-minute walk\n2. Do 5 deep breathing cycles (in 4s, hold 4s, out 6s)\n3. Drink a glass of water\n4. Aim for 7-8 hours of sleep tonight\n5. Have a conversation with someone you enjoy\n\nSmall daily habits make a big difference over time." },
 
   // Greetings
   { keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening'],
@@ -69,7 +70,7 @@ const KNOWLEDGE = [
 
   // Thank you
   { keywords: ['thank', 'thanks'],
-    response: "You're welcome! Remember, wearing your band every day helps us track your health more accurately. Keep up the great work! 💚" },
+    response: "You're welcome! Remember, wearing your band every day helps us track your health more accurately. Keep up the great work! " },
 ];
 
 const SUGGESTIONS = [
@@ -155,7 +156,7 @@ export default function ChatScreen() {
   const colors = scheme === 'dark' ? dark : light;
   const { latest, hrv } = useData();
   const [messages, setMessages] = useState([
-    { id: '0', from: 'bot', text: "Hi! I'm your NeuraFy health assistant. Ask me anything about your readings — I'm here to help you understand your health in simple terms. 💚" },
+    { id: '0', from: 'bot', text: "Hi! I'm your NeuraFy health assistant. Ask me anything about your readings — I'm here to help you understand your health in simple terms. " },
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
@@ -209,20 +210,20 @@ export default function ChatScreen() {
         />
 
         {typing && (
-          <View style={[styles.typingRow]}>
-            <Text style={[styles.typingText, { color: colors.text3 }]}>NeuraFy is thinking...</Text>
+          <View style={[styles.typingRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <TypingDots color={colors.cyan} />
           </View>
         )}
 
-        {/* Quick suggestion chips */}
-        <View style={styles.chips}>
+        {/* Quick suggestion chips — horizontal scroll */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           {SUGGESTIONS.map((s, i) => (
             <TouchableOpacity key={i} style={[styles.chip, { borderColor: colors.cardBorder, backgroundColor: colors.card }]}
               onPress={() => sendMessage(s)}>
               <Text style={[styles.chipText, { color: colors.cyan }]}>{s}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {/* Input bar */}
         <View style={[styles.inputBar, { backgroundColor: colors.card, borderTopColor: colors.cardBorder }]}>
@@ -251,14 +252,13 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700' },
   subtitle: { fontSize: 15, marginTop: 3 },
   msgList: { padding: 16, paddingBottom: 8 },
-  bubble: { maxWidth: '85%', borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1 },
+  bubble: { maxWidth: '80%', borderRadius: 18, padding: 12, paddingHorizontal: 16, marginBottom: 6 },
   userBubble: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  botBubble: { alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  botLabel: { fontSize: 12, fontWeight: '700', marginBottom: 4, letterSpacing: 0.3 },
-  msgText: { fontSize: 16, lineHeight: 23 },
-  typingRow: { paddingHorizontal: 20, paddingBottom: 6 },
-  typingText: { fontSize: 14, fontStyle: 'italic' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 16, paddingBottom: 8 },
+  botBubble: { alignSelf: 'flex-start', borderBottomLeftRadius: 4, borderWidth: 0 },
+  botLabel: { fontSize: 11, fontWeight: '600', marginBottom: 3, letterSpacing: 0.5, textTransform: 'uppercase' },
+  msgText: { fontSize: 15, lineHeight: 22 },
+  typingRow: { marginHorizontal: 16, marginBottom: 6, alignSelf: 'flex-start', borderWidth: 1, borderRadius: 16, paddingHorizontal: 12 },
+  chips: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
   chipText: { fontSize: 13, fontWeight: '500' },
   inputBar: { flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8, borderTopWidth: 1 },

@@ -1,16 +1,19 @@
 import React from 'react';
-import { ScrollView, View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, useColorScheme, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LineChart } from 'react-native-chart-kit';
 import { useData } from '../context/DataContext';
 import { dark, light } from '../theme/colors';
 
+const screenWidth = Dimensions.get('window').width - 64; // padding
+
 const METRICS = [
-  { key: 'hr', label: 'Heart Rate', unit: 'BPM', color: 'red' },
-  { key: 'sp', label: 'Blood Oxygen', unit: '%', color: 'cyan' },
-  { key: 'gsr', label: 'Stress Level', unit: '', color: 'amber' },
-  { key: 'gait', label: 'Movement & Balance', unit: '', color: 'green' },
-  { key: 'rr', label: 'Breathing Rate', unit: 'br/min', color: 'cyan' },
-  { key: 'nri', label: 'Brain Health Score', unit: '/100', color: 'violet', invert: true },
+  { key: 'hr', label: 'Heart Rate', unit: 'BPM', color: '#ef4444' },
+  { key: 'sp', label: 'Blood Oxygen', unit: '%', color: '#06b6d4' },
+  { key: 'gsr', label: 'Stress Level', unit: '', color: '#f59e0b' },
+  { key: 'gait', label: 'Movement & Balance', unit: '', color: '#10b981' },
+  { key: 'rr', label: 'Breathing Rate', unit: 'br/min', color: '#06b6d4' },
+  { key: 'nri', label: 'Brain Health Score', unit: '/100', color: '#8b5cf6', invert: true },
 ];
 
 export default function TrendsScreen() {
@@ -27,16 +30,25 @@ export default function TrendsScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {METRICS.map(m => {
           const arr = histories.current[m.key] || [];
-          const min = arr.length > 0 ? Math.round(Math.min(...arr)) : '--';
-          const max = arr.length > 0 ? Math.round(Math.max(...arr)) : '--';
-          const avg = arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : '--';
-          const last = arr.length > 0 ? Math.round(arr[arr.length - 1]) : '--';
-
-          // For Brain Health Score, invert (100 - nri)
           const display = (v) => {
             if (v === '--') return '--';
             return m.invert ? Math.max(0, 100 - v) : v;
           };
+
+          if (arr.length === 0) {
+            return (
+              <View key={m.key} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.metricLabel, { color: colors.text2 }]}>{m.label}</Text>
+                <Text style={[styles.emptyText, { color: colors.text3 }]}>Start a session to see your trends here</Text>
+              </View>
+            );
+          }
+
+          const min = Math.round(Math.min(...arr));
+          const max = Math.round(Math.max(...arr));
+          const avg = Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+          const last = Math.round(arr[arr.length - 1]);
+          const chartData = arr.slice(-30).map(v => m.invert ? Math.max(0, 100 - v) : v);
 
           return (
             <View key={m.key} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
@@ -59,28 +71,37 @@ export default function TrendsScreen() {
                   <Text style={[styles.statTag, { color: colors.text3 }]}>Highest</Text>
                 </View>
               </View>
-              {/* Mini bar chart */}
-              {arr.length === 0 ? (
-                <Text style={[styles.emptyText, { color: colors.text3 }]}>Start a session to see your trends here</Text>
-              ) : (
-                <>
-                  <View style={styles.barChart}>
-                    {arr.slice(-30).map((v, i) => {
-                      const slice = arr.slice(-30);
-                      const range = (Math.max(...slice) - Math.min(...slice)) || 1;
-                      const minVal = Math.min(...slice);
-                      const pct = ((v - minVal) / range) * 100;
-                      return (
-                        <View key={i} style={[styles.bar, { height: `${Math.max(4, pct)}%`, backgroundColor: colors[m.color] }]} />
-                      );
-                    })}
-                  </View>
-                  <View style={styles.timeRow}>
-                    <Text style={[styles.timeLabel, { color: colors.text3 }]}>oldest</Text>
-                    <Text style={[styles.timeLabel, { color: colors.text3 }]}>newest</Text>
-                  </View>
-                </>
-              )}
+              {/* Line chart */}
+              <LineChart
+                data={{
+                  labels: [],
+                  datasets: [{ data: chartData.length > 1 ? chartData : [0, 0] }],
+                }}
+                width={screenWidth}
+                height={100}
+                withDots={false}
+                withInnerLines={false}
+                withOuterLines={false}
+                withVerticalLabels={false}
+                withHorizontalLabels={false}
+                chartConfig={{
+                  backgroundGradientFrom: 'transparent',
+                  backgroundGradientTo: 'transparent',
+                  color: () => m.color,
+                  fillShadowGradientFrom: m.color,
+                  fillShadowGradientTo: 'transparent',
+                  fillShadowGradientFromOpacity: 0.3,
+                  fillShadowGradientToOpacity: 0,
+                  strokeWidth: 2,
+                  propsForBackgroundLines: { stroke: 'transparent' },
+                }}
+                bezier
+                style={styles.chart}
+              />
+              <View style={styles.timeRow}>
+                <Text style={[styles.timeLabel, { color: colors.text3 }]}>oldest</Text>
+                <Text style={[styles.timeLabel, { color: colors.text3 }]}>newest</Text>
+              </View>
             </View>
           );
         })}
@@ -93,17 +114,16 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { padding: 18, borderBottomWidth: 1 },
   title: { fontSize: 24, fontWeight: '700' },
-  subtitle: { fontSize: 14, marginTop: 3 },
+  subtitle: { fontSize: 15, marginTop: 3 },
   scroll: { padding: 16, paddingBottom: 40 },
-  card: { borderWidth: 1, borderRadius: 14, padding: 16, marginBottom: 12 },
+  card: { borderRadius: 12, padding: 16, marginBottom: 8, overflow: 'hidden' },
   metricLabel: { fontSize: 16, fontWeight: '600', letterSpacing: 0.3, marginBottom: 10 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   statItem: { alignItems: 'center' },
   statValue: { fontSize: 22, fontWeight: '600', fontVariant: ['tabular-nums'] },
   statTag: { fontSize: 14, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.3 },
-  barChart: { flexDirection: 'row', alignItems: 'flex-end', height: 40, gap: 1 },
-  bar: { flex: 1, borderRadius: 1, minHeight: 2, opacity: 0.7 },
-  emptyText: { fontSize: 15, textAlign: 'center', paddingVertical: 16 },
+  chart: { marginHorizontal: -16, borderRadius: 0 },
+  emptyText: { fontSize: 15, textAlign: 'center', paddingVertical: 24 },
   timeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   timeLabel: { fontSize: 12, fontStyle: 'italic' },
 });

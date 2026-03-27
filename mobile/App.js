@@ -4,6 +4,7 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DataProvider } from './src/context/DataContext';
 import HomeScreen from './src/screens/HomeScreen';
@@ -59,50 +60,41 @@ const errorStyles = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
 
-// ─── Tab Bar ───
+// ─── Tab Bar (iOS native style) ───
 function CustomTabBar({ state, descriptors, navigation, colors }) {
   return (
-    <View style={[tabStyles.container, { backgroundColor: colors.tabBar, borderTopColor: colors.cardBorder }]}>
-      <View style={tabStyles.inner}>
-        {state.routes.map((route, index) => {
-          const { options } = descriptors[route.key];
-          const label = options.tabBarLabel || route.name;
-          const isFocused = state.index === index;
+    <View style={[tabStyles.container, { backgroundColor: colors.tabBar, borderTopColor: colors.separator }]}>
+      {state.routes.map((route, index) => {
+        const { options } = descriptors[route.key];
+        const label = options.tabBarLabel || route.name;
+        const isFocused = state.index === index;
 
-          return (
-            <TouchableOpacity
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              onPress={() => {
-                const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-                if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
-              }}
-              style={[
-                tabStyles.tab,
-                {
-                  backgroundColor: isFocused ? (colors === dark ? 'rgba(6,182,212,0.12)' : 'rgba(8,145,178,0.08)') : 'transparent',
-                  borderColor: isFocused ? colors.tabActive : colors.cardBorder,
-                  borderWidth: 1,
-                },
-              ]}
-            >
-              <Text style={[tabStyles.label, { color: isFocused ? colors.tabActive : colors.tabInactive, fontWeight: isFocused ? '700' : '500' }]}>
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+        return (
+          <TouchableOpacity
+            key={route.key}
+            accessibilityRole="button"
+            accessibilityState={isFocused ? { selected: true } : {}}
+            onPress={() => {
+              Haptics.selectionAsync();
+              const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+              if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+            }}
+            style={tabStyles.tab}
+          >
+            <Text style={[tabStyles.label, { color: isFocused ? colors.tabActive : colors.tabInactive }]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
 const tabStyles = StyleSheet.create({
-  container: { borderTopWidth: 0.5, paddingTop: 10, paddingBottom: 36, paddingHorizontal: 12 },
-  inner: { flexDirection: 'row', gap: 6 },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 12 },
-  label: { fontSize: 13, letterSpacing: 0.2 },
+  container: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, paddingBottom: 34 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
+  label: { fontSize: 10, fontWeight: '500' },
 });
 
 // ─── App ───
@@ -141,7 +133,7 @@ export default function App() {
             <Tab.Screen name="Trends" component={TrendsScreen} options={{ tabBarLabel: 'Trends' }} />
             <Tab.Screen name="Tips" component={InsightsScreen} options={{ tabBarLabel: 'Tips' }} />
             <Tab.Screen name="Chat" component={ChatScreen} options={{ tabBarLabel: 'Ask' }} />
-            <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: 'Settings' }} />
+            <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: 'More' }} />
           </Tab.Navigator>
         </NavigationContainer>
       )}
