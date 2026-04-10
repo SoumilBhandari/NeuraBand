@@ -144,6 +144,21 @@ python3 -m http.server 8000
 # Click "Connect" → select "NeuraFy"
 ```
 
+### 4. Launch the Mobile App (optional)
+The patient-facing iOS-native companion app is in `mobile/` and runs via Expo.
+
+```bash
+cd mobile
+npm install            # only needed if node_modules is missing
+npx expo start         # opens Metro bundler
+# Scan the QR code with Expo Go (iOS/Android), or press:
+#   i  → iOS simulator
+#   a  → Android emulator
+#   w  → web preview
+```
+
+Requirements: Node.js 18+, Expo Go app on your phone (free on App Store / Play Store), or Xcode/Android Studio for simulators. The app runs in demo mode out of the box — no physical device needed.
+
 ---
 
 ## Bill of Materials
