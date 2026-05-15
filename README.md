@@ -1,15 +1,14 @@
 <div align="center">
 
-<h1>NeuraFy</h1>
+<h1>NeuraBand</h1>
 
 <p><b>A wearable biomarker monitor for the early detection of Alzheimer's disease</b></p>
 
 <p>
-NeuraFy is a pill-sized wearable that continuously and passively tracks <b>ten</b> neurologically
+NeuraBand is a pill-sized wearable that continuously and passively tracks <b>ten</b> neurologically
 relevant biomarkers, then streams them live over Bluetooth Low Energy to a clinical-grade
-dashboard and a patient-facing mobile app. It is the hardware arm of the <i>NeuraBand</i>
-project — the wearable counterpart to an MRI/PET-based model for predicting Alzheimer's
-disease progression.
+dashboard and a patient-facing mobile app. It is designed as the wearable, hardware
+counterpart to an MRI/PET-based model for predicting Alzheimer's disease progression.
 </p>
 
 <p>
@@ -21,7 +20,7 @@ disease progression.
 <img src="https://img.shields.io/badge/status-research%20prototype-f59e0b" alt="Research prototype">
 </p>
 
-<img src="docs/images/hero_angle.jpg" width="100%" alt="NeuraFy wearable device — angled render">
+<img src="docs/images/hero_angle.jpg" width="100%" alt="NeuraBand wearable device — angled render">
 
 </div>
 
@@ -48,7 +47,7 @@ some of the earliest regions affected are those that govern *autonomic* function
 regulation, skin conductance, and motor coordination. Today those changes are usually caught
 only at an annual clinic visit, if at all.
 
-NeuraFy takes the opposite approach: **continuous, passive monitoring**. By wearing one
+NeuraBand takes the opposite approach: **continuous, passive monitoring**. By wearing one
 unobtrusive band, a subject contributes a 24/7 stream of prodromal biomarkers — the kind of
 longitudinal signal that periodic assessments simply cannot capture.
 
@@ -62,7 +61,7 @@ link to neurodegeneration:
 | **Electrodermal activity** | Grove GSR + built-in electrodes | EDA is governed by the ventromedial frontal cortex and anterior cingulate — regions hit early in AD pathology. |
 | **Gait variability** | BMI270 IMU | The **strongest evidence base**: wearable-IMU gait analysis differentiates dementia subtypes, and ML on gait data reaches **85.5% accuracy** detecting mild cognitive impairment. |
 
-> No single biomarker is diagnostic. NeuraFy's value is in **fusing many weak signals** into one
+> No single biomarker is diagnostic. NeuraBand's value is in **fusing many weak signals** into one
 > longitudinal picture — see the [Scientific Basis](#scientific-basis) section for 13
 > peer-reviewed studies behind these choices.
 
@@ -85,8 +84,9 @@ frame once per second, and notifies any connected Bluetooth client.
  LPS22HB   --+      JSON telemetry @ 1 Hz                              React Native / Expo
 ```
 
-The device advertises as **`NeuraFy`** over a custom GATT service. Any Web Bluetooth browser or
-the React Native app can connect — no pairing dance, no cloud account, no companion dongle.
+The device exposes one custom 128-bit GATT service over Bluetooth Low Energy. Any Web Bluetooth
+browser or the React Native app can connect to it directly — no pairing dance, no cloud account,
+no companion dongle.
 
 ---
 
@@ -117,7 +117,7 @@ A 70 × 42 × 21 mm pill-shaped enclosure, 3D-printed in PLA, that mounts to any
 quick-release watch band. The skin-facing surface integrates the optical PPG window and two
 stainless-steel GSR electrodes; the side carries a USB-C charging port and a power switch.
 
-<img src="docs/images/exploded.jpg" width="100%" alt="Exploded view of the NeuraFy assembly">
+<img src="docs/images/exploded.jpg" width="100%" alt="Exploded view of the NeuraBand assembly">
 
 <table>
 <tr>
@@ -142,7 +142,7 @@ stainless-steel GSR electrodes; the side carries a USB-C charging port and a pow
 
 ## What's in This Repo
 
-NeuraFy is a full hardware-plus-software build. Every layer lives here:
+NeuraBand is a full hardware-plus-software build. Every layer lives here:
 
 ### Firmware &nbsp;·&nbsp; `firmware/`
 
@@ -162,7 +162,7 @@ An 884-line Arduino sketch (`neuraband_firmware.ino`) that runs the whole device
 
 A zero-install web app that connects straight to the device through the **Web Bluetooth API**.
 
-<img src="docs/images/dashboard.png" width="100%" alt="NeuraFy clinical dashboard in demo mode">
+<img src="docs/images/dashboard.png" width="100%" alt="NeuraBand clinical dashboard in demo mode">
 
 - Real-time Chart.js plots (HR & SpO₂, GSR, accelerometer + gait) on a 60-second rolling window.
 - A **Clinical Decision Support** panel that turns evidence-based thresholds into plain-language
@@ -205,7 +205,7 @@ and a printable parts-list PDF.
 
 ## Quick Start
 
-Every part of NeuraFy can be explored on its own — and the dashboard and app both have a demo
+Every part of NeuraBand can be explored on its own — and the dashboard and app both have a demo
 mode, so **you do not need to build the hardware to try the software**.
 
 ### 1 · Print the enclosure
@@ -241,7 +241,7 @@ Open the print-ready wrappers in OpenSCAD, or drop the STL files straight into y
 cd dashboard
 python -m http.server 8000
 # Open Chrome at http://localhost:8000
-# Click "Connect" and pick "NeuraFy" — or flip the "Demo" switch to explore with no hardware.
+# Click "Connect" and pick "NeuraFy" (the device's Bluetooth name) — or flip "Demo" for no hardware.
 ```
 
 > Web Bluetooth requires Chrome, Edge, or another Chromium browser over `http://localhost` or HTTPS.
@@ -385,7 +385,7 @@ Full citations with DOIs and PMIDs are in [`docs/scientific_references.md`](docs
 ## Limitations & Disclaimer
 
 > [!IMPORTANT]
-> **NeuraFy is a research prototype and a science-fair proof of concept — not a medical
+> **NeuraBand is a research prototype and a science-fair proof of concept — not a medical
 > device.** It is not FDA-cleared, not clinically validated, and must not be used to diagnose,
 > treat, or make decisions about any health condition.
 
