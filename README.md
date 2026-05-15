@@ -400,8 +400,7 @@ Full citations with DOIs and PMIDs are in [`docs/scientific_references.md`](docs
 
 ## Credits
 
-Built by **Soumil Bhandari** and **Rishik Puli** as a regional science-fair project — a
-wearable approach to detecting Alzheimer's disease progression through continuous, passive
-biomarker monitoring.
+Built by **Soumil Bhandari** as a regional science-fair project — a wearable approach to
+detecting Alzheimer's disease progression through continuous, passive biomarker monitoring.
 
 Released under the [MIT License](LICENSE).
