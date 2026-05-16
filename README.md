@@ -2,13 +2,14 @@
 
 <h1>NeuraBand</h1>
 
-<p><b>A wearable biomarker monitor for the early detection of Alzheimer's disease</b></p>
+<p><b>A wearable biomarker monitor built to help slow the progression of Alzheimer's disease</b></p>
 
 <p>
 NeuraBand is a pill-sized wearable that continuously and passively tracks <b>ten</b> neurologically
 relevant biomarkers, then streams them live over Bluetooth Low Energy to a clinical-grade
-dashboard and a patient-facing mobile app. It is designed as the wearable, hardware
-counterpart to an MRI/PET-based model for predicting Alzheimer's disease progression.
+dashboard and a patient-facing mobile app. Its purpose is not simply to detect Alzheimer's
+disease — it is to <b>slow the disease's progression</b>, by surfacing the earliest warning signs
+while there is still time for intervention to change its course.
 </p>
 
 <p>
@@ -50,6 +51,12 @@ only at an annual clinic visit, if at all.
 NeuraBand takes the opposite approach: **continuous, passive monitoring**. By wearing one
 unobtrusive band, a subject contributes a 24/7 stream of prodromal biomarkers — the kind of
 longitudinal signal that periodic assessments simply cannot capture.
+
+Detection, though, is only the first step. The early window NeuraBand opens is also the
+**treatable** window — the sooner decline is caught, the sooner lifestyle changes, medication,
+and clinical care can begin. Earlier, better-informed intervention is what gives a person the
+best chance of **slowing how fast Alzheimer's progresses**, and that is the outcome NeuraBand
+is built for.
 
 Four of the ten tracked modalities are *primary* AD biomarkers, each chosen for a documented
 link to neurodegeneration:
@@ -401,6 +408,6 @@ Full citations with DOIs and PMIDs are in [`docs/scientific_references.md`](docs
 ## Credits
 
 Built by **Soumil Bhandari** as a regional science-fair project — a wearable approach to
-detecting Alzheimer's disease progression through continuous, passive biomarker monitoring.
+slowing Alzheimer's disease progression through continuous, passive biomarker monitoring.
 
 Released under the [MIT License](LICENSE).
